@@ -6,6 +6,7 @@
 #define HW3_NODE_H
 #include <string>
 #include <vector>
+#include "bp.hpp"
 using namespace std;
 typedef enum
 {
@@ -23,7 +24,14 @@ class Node
 public:
     TokenType type;
     std::string name;
+    string quad;
     int value;
+    vector<pair<int, BranchLabelIndex>> next_list;
+    vector<pair<int, BranchLabelIndex>> true_list;
+    vector<pair<int, BranchLabelIndex>> false_list;
+    vector<pair<int, BranchLabelIndex>> break_list;
+    vector<pair<int, BranchLabelIndex>> continue_list;
+    bool return_statement;
     Node(TokenType type,std::string name,int value);
     Node();
     virtual vector<pair<TokenType,string>>* get_args(){return new vector<pair<TokenType,string>>();};

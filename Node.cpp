@@ -9,11 +9,15 @@ Node::Node(TokenType type,std::string name,int value) {
     this->type=type;
     this->name=name;
     this->value=value;
+    this->return_statement=false;
+    this->quad="";
 }
 Node::Node() {
     this->type=TOKEN_UNDIF;
     this->name="";
     this->value=0;
+    this->return_statement=false;
+    this->quad="";
 }
 
 // Exp

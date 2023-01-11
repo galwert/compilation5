@@ -1,0 +1,3 @@
+/Users/galwertheizer/Desktop/technion/technion/SemesterE/compilation/hw5/cmake-build-debug/CMakeFiles/hw5.dir
+/Users/galwertheizer/Desktop/technion/technion/SemesterE/compilation/hw5/cmake-build-debug/CMakeFiles/edit_cache.dir
+/Users/galwertheizer/Desktop/technion/technion/SemesterE/compilation/hw5/cmake-build-debug/CMakeFiles/rebuild_cache.dir
