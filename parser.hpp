@@ -47,6 +47,8 @@ public:
     vector<string>* get_string_args(string name);
     int get_value(string name);
     int set_value(string name,int value);
+    table_entry* get_entry(string name);
+    vector<pair<TokenType,string>>* get_args_last_func();
 };
 
 class FormalList: public Node
@@ -61,6 +63,7 @@ public:
 class Call: public Node
 {
 public:
+    string place;
     vector<pair<TokenType,string>>* args;
     Call(TokenType type,std::string name,int value);
     vector<pair<TokenType,string>>* get_args();

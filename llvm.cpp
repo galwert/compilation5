@@ -4,6 +4,7 @@
 
 #include "llvm.h"
 #include "Node.h"
+#include "parser.hpp"
 void LLVM::print_all()
 {
     this->buffer->emitGlobal(printf_llvm);
@@ -42,13 +43,19 @@ void LLVM::close_func(TokenType type, Node* node)
     buffer->emit(type == TokenType::TOKEN_UNDIF ? ret_void_llvm : ret_success_llvm);
     buffer->emit("}");
 }
+static void llvm::gen_typed_id(string value,int offset)
+{
+    string name = "%var"+ llvm.current_var++;
 
+
+    buffer->emit("store i32 "+value+" , i32* "+name);
+    buffer->emit(name + " = getelementptr [50 x i32], [50 x i32]* %fp, i32 0 , i32 " + to_string(offset));
+}
 
 static void LLVM::make_m_label(Node* node)
 {
     int buffer_index = buffer->emit(branch_to_bp_llvm);
     string label = buffer->genLabel();
-    // debugGenerator("label", label);
     buffer->bpatch(CodeBuffer::makelist({buffer_index, FIRST}), label);
     node->quad = label;
 }

@@ -103,6 +103,17 @@ int Stacks::get_value(string name){
     }
     return 0;
 }
+table_entry* Stacks::get_entry(string name){
+    for(int i=0; i<tables_stack->size();i++)
+    {
+        int size=tables_stack->at(i)->size();
+        for(int j=0;j<size;j++)
+            if(tables_stack->at(i)->at(j)->name==name)
+            {
+                return tables_stack->at(i)->at(j);}
+    }
+    return NULL;
+}
 
 int Stacks::set_value(string name,int value){
     for(int i=0; i<tables_stack->size();i++)
@@ -156,6 +167,10 @@ vector<pair<TokenType,string>>* Stacks::get_args(string name){
     }
     return {};
 }
+vector<pair<TokenType,string>>* Stacks::get_args_last_func(){
+
+    return tables_stack->front()->back()->arguments;
+}
 vector<string>* Stacks::get_string_args(string name){
     for(int i=0; i<tables_stack->size();i++)
     {
@@ -191,6 +206,7 @@ void FormalList::set_args(vector<pair<TokenType,string>>* args)
 // Call
 Call::Call(TokenType type,std::string name,int value): Node( type, name, value){
     this->args=new vector<pair<TokenType,string>>();
+    this->place="";
 }
 vector<pair<TokenType,string>>* Call::get_args()
 {

@@ -11,6 +11,11 @@ Node::Node(TokenType type,std::string name,int value) {
     this->value=value;
     this->return_statement=false;
     this->quad="";
+    this->next_list=*new vector<pair<int, BranchLabelIndex>>();
+    this->true_list=*new vector<pair<int, BranchLabelIndex>>();
+    this->false_list=*new vector<pair<int, BranchLabelIndex>>();
+    this->break_list=*new vector<pair<int, BranchLabelIndex>>();
+    this->continue_list=*new vector<pair<int, BranchLabelIndex>>();
 }
 Node::Node() {
     this->type=TOKEN_UNDIF;
@@ -18,6 +23,11 @@ Node::Node() {
     this->value=0;
     this->return_statement=false;
     this->quad="";
+    this->next_list=*new vector<pair<int, BranchLabelIndex>>();
+    this->true_list=*new vector<pair<int, BranchLabelIndex>>();
+    this->false_list=*new vector<pair<int, BranchLabelIndex>>();
+    this->break_list=*new vector<pair<int, BranchLabelIndex>>();
+    this->continue_list=*new vector<pair<int, BranchLabelIndex>>();
 }
 
 // Exp
