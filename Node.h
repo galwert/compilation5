@@ -31,6 +31,7 @@ public:
     vector<pair<int, BranchLabelIndex>> false_list;
     vector<pair<int, BranchLabelIndex>> break_list;
     vector<pair<int, BranchLabelIndex>> continue_list;
+    string place;
 
     bool return_statement;
     Node(TokenType type,std::string name,int value);
