@@ -16,6 +16,7 @@ Node::Node(TokenType type,std::string name,int value) {
     this->false_list=*new vector<pair<int, BranchLabelIndex>>();
     this->break_list=*new vector<pair<int, BranchLabelIndex>>();
     this->continue_list=*new vector<pair<int, BranchLabelIndex>>();
+    this->place = "";
 }
 Node::Node() {
     this->type=TOKEN_UNDIF;
@@ -28,6 +29,7 @@ Node::Node() {
     this->false_list=*new vector<pair<int, BranchLabelIndex>>();
     this->break_list=*new vector<pair<int, BranchLabelIndex>>();
     this->continue_list=*new vector<pair<int, BranchLabelIndex>>();
+    this->place = "";
 }
 
 // Exp

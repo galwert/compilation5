@@ -70,7 +70,7 @@ string define_func_llvm(string name, int size_of_args,string type)
 {
 
     string args = "";
-    for (auto i = 0; i < size; i++)
+    for (auto i = 0; i < size_of_args; i++)
     {
         args = args + "i32 ,";
     }
@@ -185,21 +185,23 @@ string zext(string varName ,string input,string sourceType,string targetType)
 
 class LLVM
 {
-public:
-    int current_var;
-    static LLVM *instance;
-    static CodeBuffer *buffer;
-    LLVM()=default;
-    static LLVM *get_instance()
-    {
-        if(instance==NULL)
+    public:
+        int current_var;
+        static LLVM *instance;
+        static CodeBuffer *buffer;
+        LLVM()=default;
+        static LLVM *get_instance()
         {
-            instance=new LLVM();
+            if(instance==NULL)
+            {
+                instance=new LLVM();
+                return instance;
+            }
             return instance;
         }
-        return instance;
-    }
-    void print_all();
+        void print_all();
+        void make_new_func(string name, int size_of_args,TokenType type);
+        void close_func(TokenType type, Node* node);
 };
 
 #endif //HW5_LLVM_H
