@@ -3,6 +3,7 @@
 #include "llvm.cpp"
 #include "parser.hpp"
 #include "hw3_output.hpp"
+#include "bp.hpp"
 #include <climits>
 extern int yylineno;
 using namespace std;
@@ -10,6 +11,8 @@ int yyerror(const char * const s);
 int yylex(void);
 Stacks* semantic_stacks;
 #define YYDEBUG 1
+#define gen_code (CodeBuffer::instance())
+
 TokenType convert_table[5][5]={
         {/*UNDIF TO*/
                 /*TOKEN_UNDIF*/TOKEN_UNDIF,
@@ -74,12 +77,19 @@ TokenType convert_table[5][5]={
 
 M:
     %empty                            {
-      LLVM->make_m_label($$);
+          int buffer_index = gen_code->emit("br label @");
+          string label = gen_code->genLabel();
+          gen_code->bpatch(gen_code->makelist({buffer_index, FIRST}), label);
+          $$->quad = label;
     };
 
 N:
     %empty                            {
-      LLVM->make_n_label($$);
+          int buffer_index = gen_code->emit("br label @");
+          string label = gen_code->genLabel();
+          gen_code->bpatch(gen_code->makelist({buffer_index, FIRST}), label);
+          $$->quad = label;
+       $$->next_list = gen_code->makelist({gen_code->emit("br label @"), FIRST});
     };
 
 Program:   
@@ -116,9 +126,21 @@ FuncDecl:
 			}
 
 			semantic_stacks->new_func($2->name,$1->type,$4->get_args());
-			make_new_func($2->name, $4->get_args()->size(),$1->type);
+			string type_in_str = $1->type==TokenType::TOKEN_UNDIF ? "void" : "i32";
+            //gen_code->emit(define_func_llvm(name, size_of_args,type_in_str);
+            string args = "";
+            for (auto i = 0; i < $4->get_args()->size(); i++)
+            {
+                args = args + "i32 ,";
+            }
+            args = args.substr(0, args.length() - 1);
+
+			//make_new_func($2->name, $4->get_args()->size(),$1->type);
+			gen_code->emit("define " + type_in_str + " @" + $2->name + "(" + args + ") {");
+			gen_code->emit("entry: /n%fp = alloca [50 x i32]");
 		}
-            LBRACE Statements RBRACE { semantic_stacks->exit_scope();
+            LBRACE Statements RBRACE {
+            semantic_stacks->exit_scope();gen_code->emit("}");
              }
 		;
 
@@ -157,18 +179,18 @@ FormalDecl:
 		;
 Statements:	
 			Statement {
-			$$.next_list = $1.next_list;
-                  $$.break_list = $1.break_list;
-                  $$.continue_list = $1.continue_list;
+			$$->next_list = $1->next_list;
+                  $$->break_list = $1->break_list;
+                  $$->continue_list = $1->continue_list;
             }
 			| Statements M Statement  {
-			        if ($3.return_statement == false)
+			        if ($3->return_statement == false)
                     {
-                        buffer->bpatch(atom_statements->next_list, atom_marker->quad);
+                        gen_code->bpatch(atom_statements->next_list, atom_marker->quad);
                     }
-                    $$.next_list = $3.next_list;
-                    $$.break_list = buffer->merge($1.break_list,$3.break_list);
-                    $$.continue_list = buffer->merge($1.continue_list,$3.continue_list);
+                    $$->next_list = $3->next_list;
+                    $$->break_list = gen_code->merge($1->break_list,$3->break_list);
+                    $$->continue_list = gen_code->merge($1->continue_list,$3->continue_list);
             }
 		;
 
@@ -183,7 +205,7 @@ Statement:
                      $$->next_list = $2->next_list;
                      $$->break_list = $2->break_list;
                      $$->continue_list = $2->continue_list;
-                     buffer->bpatch($3->next_list,$3->quad);
+                     gen_code->bpatch($3->next_list,$3->quad);
 		        semantic_stacks->exit_scope();
 		    }
 
@@ -195,7 +217,9 @@ Statement:
 			}
 			$$ = new Node($1->type, $2->name, 0);
 			semantic_stacks->new_entry($2->name,$1->type,0);
-			llvm->gen_typed_id("0",semantic_table->get_entry(atom_id.name)->offset);
+			string name = "%var"+ gen_code->current_var++;
+            gen_code->emit("store i32 0 , i32* "+name);
+            gen_code->emit(name + " = getelementptr [50 x i32], [50 x i32]* %fp, i32 0 , i32 " + to_string(semantic_table->get_entry($2->name)->offset));
 		}
 		| Type ID ASSIGN Exp SC {
 			if(semantic_stacks->is_exsists($2->name))
@@ -221,35 +245,37 @@ Statement:
 
 
 
-            if ($1->type != TYPE_BOOL)
+            if ($1->type != TokenType::TOKEN_BOOL)
             {
-                string target = "%var"+to_string(current_var++);
-               llvm->gen_typed_id($4->value,semantic_table->get_entry(atom_id.name)->offset);
+                string target = "%var"+to_string(gen_code->current_var++);
+                string name = "%var"+ gen_code->current_var++;
+                gen_code->emit("store i32 "+$4->value+" , i32* "+name);
+                gen_code->emit(name + " = getelementptr [50 x i32], [50 x i32]* %fp, i32 0 , i32 " + to_string(semantic_table->get_entry($2->name)->offset));
                 $$->next_list = atom_exp->next_list;
             }
             else
             {//we come back when we smart more
-                string true_temp = "%var"+to_string(current_var++);
-                string false_temp = "%var"+to_string(current_var++);
-                _B.emit(declare_var_llvm(true_temp, "0", id_offset));
-                _B.emit(store_arg_through_place_llvm("1", true_temp));
-                int unused_index = buffer->emit(branch_to_bp_llvm);
-                string true_label = _B.genLabel();
-                buffer->bpatch(CodeBuffer::makelist({unused_index, FIRST}), true_label);
+                string true_temp = "%var"+to_string(gen_code->current_var++);
+                string false_temp = "%var"+to_string(gen_code->current_var++);
+                gen_code->emit(declare_var_llvm(true_temp, "0", id_offset));
+                gen_code->emit(store_arg_through_place_llvm("1", true_temp));
+                int unused_index = gen_code->emit("br label @");
+                string true_label = gen_code->genLabel();
+                gen_code->bpatch(gen_code->makelist({unused_index, FIRST}), true_label);
 
-                int true_index_patch = _B.emit(branch_to_bp_llvm);
-                _B.bpatch(atom_exp.true_list, true_label);
+                int true_index_patch = gen_code->emit("br label @");
+                gen_code->bpatch(atom_exp.true_list, true_label);
 
-                string false_label = _B.genLabel();
-                _B.emit(declare_var_llvm(false_temp, "0", id_offset));
-                _B.emit(store_arg_through_place_llvm("0", false_temp));
+                string false_label = gen_code->genLabel();
+                gen_code->emit(declare_var_llvm(false_temp, "0", id_offset));
+                gen_code->emit(store_arg_through_place_llvm("0", false_temp));
 
-                int false_index_patch = _B.emit(branch_to_bp_llvm);
-                buffer->bpatch(atom_exp.false_list, false_label);
+                int false_index_patch = gen_code->emit("br label @");
+                gen_code->bpatch(atom_exp.false_list, false_label);
 
-                auto true_list = CodeBuffer::makelist({true_index_patch, FIRST});
-                auto false_list = CodeBuffer::makelist({false_index_patch, FIRST});
-                $$->next_list = CodeBuffer::merge(true_list, false_list);
+                auto true_list = gen_code->makelist({true_index_patch, FIRST});
+                auto false_list = gen_code->makelist({false_index_patch, FIRST});
+                $$->next_list = gen_code->merge(true_list, false_list);
              }
 		}
 		| ID ASSIGN Exp SC {
@@ -282,7 +308,7 @@ Statement:
 				output::errorMismatch(yylineno);
 				exit(2);
 			}
-			buffer->emit("(ret void)")
+			gen_code->emit("(ret void)")
 			$$->return_statement=true;
 		}
 
@@ -294,42 +320,42 @@ Statement:
 			}
 			semantic_stacks->update_last_func($2->value);
 			$$->return_statement=true;
-            if($2.TYPE==TYPE_BOOL){
-                buffer->bpatch($2->true_list,$3->quad);
-                buffer->bpatch($2->false_list,$5->quad);
-                int buffer_index = buffer->emit("(br label @)");
-                int trueLabel = buffer->genLabel();
-                buffer->bpatch(CodeBuffer::makelist({buffer_index, FIRST}), trueLabel);
-                int trueJump= buffer->emit("ret i32 1");
-                int falseLabel = buffer->genLabel();
-                int falseJump= buffer->emit(r"ret i32 0");
-                buffer->bpatch($4->next_list,trueLabel);
-                buffer->bpatch($6->next_list,falseLabel);
+            if($2->type==TokenType::TOKEN_BOOL){
+                gen_code->bpatch($2->true_list,$3->quad);
+                gen_code->bpatch($2->false_list,$5->quad);
+                int buffer_index = gen_code->emit("br label @");
+                int trueLabel = gen_code->genLabel();
+                gen_code->bpatch(gen_code->makelist({buffer_index, FIRST}), trueLabel);
+                int trueJump= gen_code->emit("ret i32 1");
+                int falseLabel = gen_code->genLabel();
+                int falseJump= gen_code->emit(r"ret i32 0");
+                gen_code->bpatch($4->next_list,trueLabel);
+                gen_code->bpatch($6->next_list,falseLabel);
                   }else{
-                    buffer->bpatch(CodeBuffer::merge($4.next_list,$6.next_list),$7.quad);
-                      buffer->emit("ret i32 " + $2->value);
-                      $$.next_list = $2->next_list;
+                    gen_code->bpatch(gen_code->merge($4->next_list,$6->next_list),$7->quad);
+                      gen_code->emit("ret i32 " + $2->value);
+                      $$->next_list = $2->next_list;
                   }
 		}
 		| IfExp M Statement {
                	        $$->quad=$2->quad;
                	        semantic_stacks->exit_scope();
-               	        buffer->bpatch($1->true_list, $$->quad);
+               	        gen_code->bpatch($1->true_list, $$->quad);
 
-                       $$.next_list = CodeBuffer::merge($1->false_list, $3->next_list);
-                       $$.continue_list = $3->continue_list;
-                       $$.break_list = $3->break_list;
+                       $$->next_list = gen_code->merge($1->false_list, $3->next_list);
+                       $$->continue_list = $3->continue_list;
+                       $$->break_list = $3->break_list;
                	    } %prec NOELSE
 		| IfExp M Statement ELSE N M { semantic_stacks->new_scope(); } Statement { semantic_stacks->exit_scope(); } %prec ELSE
 		        {
-		            buffer->bpatch($1->true_list,$2->quad);
-                    buffer->bpatch($1->false_list,$6->quad);
+		            gen_code->bpatch($1->true_list,$2->quad);
+                    gen_code->bpatch($1->false_list,$6->quad);
 
 
-                    $$->next_list = CodeBuffer::merge($3->next_list, $7->next_list);
-                    $$->next_list = CodeBuffer::merge($$->next_list, $5->next_list);
-                    $$->break_list = CodeBuffer::merge($3->break_list, $7->break_list);
-                    $$->continue_list = CodeBuffer::merge($3->continue_list, $7->continue_list);
+                    $$->next_list = gen_code->merge($3->next_list, $7->next_list);
+                    $$->next_list = gen_code->merge($$->next_list, $5->next_list);
+                    $$->break_list = gen_code->merge($3->break_list, $7->break_list);
+                    $$->continue_list = gen_code->merge($3->continue_list, $7->continue_list);
 		        }
 		| WHILE M LPAREN Exp RPAREN {
 			if($3->type != TokenType::TOKEN_BOOL)
@@ -337,22 +363,22 @@ Statement:
 				output::errorMismatch(yylineno);
 				exit(2);
 			}
-			$$.true_list = $4.true_list;
-            $$.false_list = $4.false_list;
-            $$.quad = $2.quad;
+			$$->true_list = $4->true_list;
+            $$->false_list = $4->false_list;
+            $$->quad = $2->quad;
 			semantic_stacks->whilecounter++;
 			semantic_stacks->new_scope();
 			} M Statement {
-			      buffer->bpatch($4.true_list,$6.quad);
+			      gen_code->bpatch($4->true_list,$6->quad);
 
 
-			      buffer->bpatch($7.next_list, $2.quad);
-                  buffer->bpatch($7.continue_list, $2.quad);
+			      gen_code->bpatch($7->next_list, $2->quad);
+                  gen_code->bpatch($7->continue_list, $2->quad);
 
-                  $$.next_list = CodeBuffer::merge($4.false_list, $7.break_list);
+                  $$->next_list = gen_code->merge($4->false_list, $7->break_list);
 
-                  int label_index = buffer->emit(br_loop_llvm($7.quad));
-                  buffer->bpatch(CodeBuffer::makelist({label_index, FIRST}), $7.quad);
+                  int label_index = gen_code->emit(br_loop_llvm($7->quad));
+                  gen_code->bpatch(gen_code->makelist({label_index, FIRST}), $7->quad);
 				semantic_stacks->whilecounter--;
 				semantic_stacks->exit_scope();
 			}
@@ -362,8 +388,8 @@ Statement:
 				output::errorUnexpectedBreak(yylineno);
 				exit(2);
 			}
-			int label_index = buffer->emit(branch_to_bp_llvm);
-            $$->break_list = CodeBuffer::makelist({label_index, FIRST});
+			int label_index = gen_code->emit("br label @");
+            $$->break_list = gen_code->makelist({label_index, FIRST});
 		}
 		| CONTINUE SC {
 			if(semantic_stacks->whilecounter == 0)
@@ -371,9 +397,9 @@ Statement:
 				output::errorUnexpectedContinue(yylineno);
 				exit(2);
 			}
-			int label_index = buffer->emit(branch_to_bp_llvm);
+			int label_index = gen_code->emit("br label @");
 
-            $$->continue_list = CodeBuffer::makelist({label_index, FIRST});
+            $$->continue_list = gen_code->makelist({label_index, FIRST});
 		}
 		;
 IfExp:  IF LPAREN Exp RPAREN {
@@ -401,7 +427,7 @@ Call:	ID LPAREN ExpList M RPAREN {
 			
 			for(int i = 0; i < func_args->size(); i++)
 			{
-				if(convert_table[func_args->at(i).first][$3->get_vars()->at(i).type] == TOKEN_UNDIF || (func_args->at(i).first == TokenType::TOKEN_B && $3->get_vars()->at(i).type == TokenType::TOKEN_INT))
+				if(convert_table[func_args->at(i).first][$3->get_vars()->at(i)->type] == TOKEN_UNDIF || (func_args->at(i).first == TokenType::TOKEN_B && $3->get_vars()->at(i)->type == TokenType::TOKEN_INT))
 				{
 					output::errorPrototypeMismatch(yylineno, $1->name, *(semantic_stacks->get_string_args($1->name)));
 					exit(2);
@@ -409,13 +435,13 @@ Call:	ID LPAREN ExpList M RPAREN {
 			}
 
 			$$ = new Call(semantic_stacks->get_type($1->name), $1->name,semantic_stacks->get_value($1->name));
-			buffer->bpatch($3->true_list,$4->quad);
-                  buffer->bpatch($3->false_list,$4->quad);
+			gen_code->bpatch($3->true_list,$4->quad);
+                  gen_code->bpatch($3->false_list,$4->quad);
                   if ($1->name == "print")
                     {
                       string str = $3->list->front()->name;
-                      int str_len = to_string(str_value.length() - 1);
-                      buffer->emit("call void @print (i8* getelementptr ([" + str_len + " x i8], [" + str_len + " x i8]* " + str + ", i32 0, i32 0))";);
+                      int str_len = to_string(str.length - 1);
+                      gen_code->emit("call void @print (i8* getelementptr ([" + str_len + " x i8], [" + str_len + " x i8]* " + str + ", i32 0, i32 0))";);
                       return;
                     }
                     TokenType ret_type = semantic_stack->get_function_type($1->name);
@@ -428,24 +454,24 @@ Call:	ID LPAREN ExpList M RPAREN {
                       args = args_llvm.substr(0, args_llvm.length() - 1);
                       if(ret_type==TokenType::TOKEN_UNDIF)
                         {
-                            int index=buffer->emit("call void @" + name + "(" + args + ")");
-                            buffer->bpatch($3->false_list,to_string(index));
-                            buffer->bpatch($3->true_list,to_string(index));
-                            buffer->bpatch($3->next_list,to_string(index));
+                            int index=gen_code->emit("call void @" + name + "(" + args + ")");
+                            gen_code->bpatch($3->false_list,to_string(index));
+                            gen_code->bpatch($3->true_list,to_string(index));
+                            gen_code->bpatch($3->next_list,to_string(index));
                         }
                       else
                         {
-                            buffer->emit("call i32 @" + name + "(" + args + ")");
-							stinrg target = "%var"+to_string(current_var++);
-							buffer->emit(assign_to_var_llvm(target, call_exp_llvm));
+                            gen_code->emit("call i32 @" + name + "(" + args + ")");
+							stinrg target = "%var"+to_string(gen_code->current_var++);
+							gen_code->emit(assign_to_var_llvm(target, call_exp_llvm));
 							$$->place=target;
-							if (function_type == TYPE_BOOL)
+							if (function_type == TokenType::TOKEN_BOOL)
 							{
-								string target_boolean = "%var"+to_string(current_var++);
-								buffer->emit(target_boolean + " = icmp ne i32 0, " + $$->place);
-								int label_index = buffer->emit("br i1 " + target_boolean + " , label @ , label @");
-								$$->true_list = buffer->makelist({label_index, FIRST});
-								$$->false_list = buffer->makelist({label_index, SECOND});
+								string target_boolean = "%var"+to_string(gen_code->current_var++);
+								gen_code->emit(target_boolean + " = icmp ne i32 0, " + $$->place);
+								int label_index = gen_code->emit("br i1 " + target_boolean + " , label @ , label @");
+								$$->true_list = gen_code->makelist({label_index, FIRST});
+								$$->false_list = gen_code->makelist({label_index, SECOND});
 							}
                         }
 
@@ -469,21 +495,21 @@ Call:	ID LPAREN ExpList M RPAREN {
             string args_llvm = "";
                 if(ret_type==TokenType::TOKEN_UNDIF)
                 {
-                    int index=buffer->emit("call void @" + name + "()");
+                    int index=gen_code->emit("call void @" + name + "()");
                 }
                   else
                 {
-                    buffer->emit("call i32 @" + name + "()");
-                    string target = "%var"+to_string(current_var++);
-                    buffer->emit(target + " = " + call_llvm);
+                    gen_code->emit("call i32 @" + name + "()");
+                    string target = "%var"+to_string(gen_code->current_var++);
+                    gen_code->emit(target + " = " + call_llvm);
                     $$->place=target;
-                    if (function_type == TYPE_BOOL)
+                    if (function_type == TokenType::TOKEN_BOOL)
                 {
-                    string target_boolean = "%var"+to_string(current_var++);
-                    buffer->emit(target_boolean + " = icmp ne i32 0, " + $$->place);
-                    int label_index = buffer->emit("br i1 " + target_boolean + " , label @ , label @");
-                    $$->true_list = buffer->makelist({label_index, FIRST});
-                    $$->false_list = buffer->makelist({label_index, SECOND});
+                    string target_boolean = "%var"+to_string(gen_code->current_var++);
+                    gen_code->emit(target_boolean + " = icmp ne i32 0, " + $$->place);
+                    int label_index = gen_code->emit("br i1 " + target_boolean + " , label @ , label @");
+                    $$->true_list = gen_code->makelist({label_index, FIRST});
+                    $$->false_list = gen_code->makelist({label_index, SECOND});
                  }
             }
 
@@ -497,23 +523,23 @@ ExpList: Exp {
 			$$ = explist;
             if ($1->type == TokenType::TOKEN_BOOL)
             {
-                string target = "%var"+to_string(current_var++);
-                int unused_index = buffer->emit("(br label @)");
+                string target = "%var"+to_string(gen_code->current_var++);
+                int unused_index = gen_code->emit("br label @");
 
-                string true_label = buffer->genLabel();
-                buffer->bpatch(BufferCode::makelist({unused_index, FIRST}), true_label);
-                int true_index = buffer->emit("(br label @)");
-                buffer->bpatch($1->true_list, true_label);
+                string true_label = gen_code->genLabel();
+                gen_code->bpatch(BufferCode::makelist({unused_index, FIRST}), true_label);
+                int true_index = gen_code->emit("br label @");
+                gen_code->bpatch($1->true_list, true_label);
 
-                string false_label =buffer->genLabel();
-                buffer->bpatch(BufferCode::makelist({unused_index, FIRST}), false_label);
-                int false_index = buffer->emit(branch_to_bp_llvm);
-                buffer->bpatch($1->false_list, false_label);
+                string false_label =gen_code->genLabel();
+                gen_code->bpatch(BufferCode::makelist({unused_index, FIRST}), false_label);
+                int false_index = gen_code->emit("br label @");
+                gen_code->bpatch($1->false_list, false_label);
 
-                string next_label = buffer->genLabel();
-                buffer->bpatch(buffer->makelist({true_index, FIRST}), next_label);
-                buffer->bpatch(buffer->makelist({false_index, FIRST}), next_label);
-                buffer->emit(target + " = phi i32 [ 1, %" + true_label + " ] , [ 0, %" + false_label + "]";
+                string next_label = gen_code->genLabel();
+                gen_code->bpatch(gen_code->makelist({true_index, FIRST}), next_label);
+                gen_code->bpatch(gen_code->makelist({false_index, FIRST}), next_label);
+                gen_code->emit(target + " = phi i32 [ 1, %" + true_label + " ] , [ 0, %" + false_label + "]";
                 $$->place = target;
             }
             $$->true_list=$1->true_list;
@@ -525,27 +551,27 @@ ExpList: Exp {
 			$$ = $3;
 			if ($1->type == TokenType::TOKEN_BOOL)
             {
-                            string target = "%var"+to_string(current_var++);
-                            int unused_index = buffer->emit("(br label @)");
+                string target = "%var"+to_string(gen_code->current_var++);
+                int unused_index = gen_code->emit("br label @");
 
-                            string true_label = buffer->genLabel();
-                            buffer->bpatch(BufferCode::makelist({unused_index, FIRST}), true_label);
-                            int true_index = buffer->emit("(br label @)");
-                            buffer->bpatch($1->true_list, true_label);
+                string true_label = gen_code->genLabel();
+                gen_code->bpatch(BufferCode::makelist({unused_index, FIRST}), true_label);
+                int true_index = gen_code->emit("br label @");
+                gen_code->bpatch($1->true_list, true_label);
 
-                            string false_label =buffer->genLabel();
-                            buffer->bpatch(BufferCode::makelist({unused_index, FIRST}), false_label);
-                            int false_index = buffer->emit(branch_to_bp_llvm);
-                            buffer->bpatch($1->false_list, false_label);
+                string false_label =gen_code->genLabel();
+                gen_code->bpatch(BufferCode::makelist({unused_index, FIRST}), false_label);
+                int false_index = gen_code->emit("br label @");
+                gen_code->bpatch($1->false_list, false_label);
 
-                            string next_label = buffer->genLabel();
-                            buffer->bpatch(buffer->makelist({true_index, FIRST}), next_label);
-                            buffer->bpatch(buffer->makelist({false_index, FIRST}), next_label);
-                            buffer->emit(target + " = phi i32 [ 1, %" + true_label + " ] , [ 0, %" + false_label + "]";
-                            $$->place = target;
-                        }
-            $$->true_list = CodeBuffer::merge($1->true_list, $3->true_list);
-            $$->false_list = CodeBuffer::merge($1->false_list, $3->false_list);
+                string next_label = gen_code->genLabel();
+                gen_code->bpatch(gen_code->makelist({true_index, FIRST}), next_label);
+                gen_code->bpatch(gen_code->makelist({false_index, FIRST}), next_label);
+                gen_code->emit(target + " = phi i32 [ 1, %" + true_label + " ] , [ 0, %" + false_label + "]";
+                $$->place = target;
+            }
+            $$->true_list = gen_code->merge($1->true_list, $3->true_list);
+            $$->false_list = gen_code->merge($1->false_list, $3->false_list);
 		}
 		;
 
@@ -609,7 +635,7 @@ Exp: LPAREN Exp RPAREN {
 		$$ = new Exp(new_type, std::to_string(new_val), new_val);
 
 
-		string target = "%var"+to_string(current_var++);
+		string target = "%var"+to_string(gen_code->current_var++);
 
         string right_place = $3->place;
         string left_place = $1->place;
@@ -620,14 +646,14 @@ Exp: LPAREN Exp RPAREN {
 
         bool can_overflow = false;
         /* Byte overflow */
-        if ($1->type == TokenType::TOKEN_BYTE && $3->type == TokenType::TOKEN_BYTE)
+        if ($1->type == TokenType::TOKEN_B && $3->type == TokenType::TOKEN_B)
 		{
 
-			string left_var = "%var"+to_string(current_var++);
-			buffer->emit(left_var + " = trunc i32 " + $1->value + " to i8");
+			string left_var = "%var"+to_string(gen_code->current_var++);
+			gen_code->emit(left_var + " = trunc i32 " + $1->value + " to i8");
 
-			string right_var = "%var"+to_string(current_var++);
-			buffer->emit(right_var + " = trunc i32 " + $1->value + " to i8");
+			string right_var = "%var"+to_string(gen_code->current_var++);
+			gen_code->emit(right_var + " = trunc i32 " + $1->value + " to i8");
 
 			/* Bubble the updates */
 			left = left_var;
@@ -639,18 +665,18 @@ Exp: LPAREN Exp RPAREN {
 		string op_type_llvm = can_overflow ? "i8" : "i32";
 		else if (op == "+")
 		{
-		buffer->emit(target + " = add" + op_type_llvm+ " " left+ ", " right););
+		gen_code->emit(target + " = add" + op_type_llvm+ " " left+ ", " right););
 		}
 		else if (op == "-")
 		{
-			buffer->emit(target + " = sub" + op_type_llvm+ " " left+ ", " right););
+			gen_code->emit(target + " = sub" + op_type_llvm+ " " left+ ", " right););
 		}
 
 		/* Handle overflow / sign */
 		if (can_overflow)
 		{
-			string next_var = "%var"+to_string(current_var++);
-			buffer->emit(next_var + " = zext i8 " + target + " to i32");
+			string next_var = "%var"+to_string(gen_code->current_var++);
+			gen_code->emit(next_var + " = zext i8 " + target + " to i32");
 			target = next_var;
 		}
 		$$->place = target;
@@ -679,7 +705,7 @@ Exp: LPAREN Exp RPAREN {
 
 		//denis code started here
 
-          string target = "%var"+to_string(current_var++);
+          string target = "%var"+to_string(gen_code->current_var++);
 
           string right_place = $3->place;
           string left_place = $1->place;
@@ -690,14 +716,14 @@ Exp: LPAREN Exp RPAREN {
 
           bool can_overflow = false;
           /* Byte overflow */
-          if ($2->name != "/" && $1->type == TokenType::TOKEN_BYTE && $3->type == TokenType::TOKEN_BYTE)
+          if ($2->name != "/" && $1->type == TokenType::TOKEN_B && $3->type == TokenType::TOKEN_B)
           {
 
-            string left_var = "%var"+to_string(current_var++);
-            buffer->emit(left_var + " = trunc i32 " + $1->value + " to i8");
+            string left_var = "%var"+to_string(gen_code->current_var++);
+            gen_code->emit(left_var + " = trunc i32 " + $1->value + " to i8");
 
-            string right_var = "%var"+to_string(current_var++);
-            buffer->emit(right_var + " = trunc i32 " + $1->value + " to i8");
+            string right_var = "%var"+to_string(gen_code->current_var++);
+            gen_code->emit(right_var + " = trunc i32 " + $1->value + " to i8");
 
             /* Bubble the updates */
             left = left_var;
@@ -710,34 +736,34 @@ Exp: LPAREN Exp RPAREN {
 
           if (op == DIV)
           {
-            string zero_var_llvm = "%var"+to_string(current_var++);
+            string zero_var_llvm = "%var"+to_string(gen_code->current_var++);
             string zero_source = right_place == "" ? right_value : right_place;
 
-            buffer->emit(zero_var_llvm + " = icmp eq i32 " + zero_source + ", 0");
-            int zero_bp = buffer->emit("br i1 " + zero_var_llvm + " , label @ , label @");
+            gen_code->emit(zero_var_llvm + " = icmp eq i32 " + zero_source + ", 0");
+            int zero_bp = gen_code->emit("br i1 " + zero_var_llvm + " , label @ , label @");
 
-            string error_label = _B.genLabel();
-            buffer->emit("call i32 (i8*, ...) @printf(i8* getelementptr([24 x i8], [24 x i8]* @.zero_div, i32 0, i32 0))
+            string error_label = gen_code->genLabel();
+            gen_code->emit("call i32 (i8*, ...) @printf(i8* getelementptr([24 x i8], [24 x i8]* @.zero_div, i32 0, i32 0))
                     call void @exit(i32 0)");
 
-            int unused_bp = buffer->emit("br label @");
+            int unused_bp = gen_code->emit("br label @");
 
-            string success_label = buffer->genLabel();
-            buffer->emit(target + " = sdiv" + op_type_llvm+ " " left+ ", " right);
-            buffer->bpatch(buffer->makelist({zero_bp, SECOND}), success_label);
-            buffer->bpatch(buffer->makelist({zero_bp, FIRST}), error_label);
-            buffer->bpatch(buffer->makelist({unused_bp, FIRST}), success_label);
+            string success_label = gen_code->genLabel();
+            gen_code->emit(target + " = sdiv" + op_type_llvm+ " " left+ ", " right);
+            gen_code->bpatch(gen_code->makelist({zero_bp, SECOND}), success_label);
+            gen_code->bpatch(gen_code->makelist({zero_bp, FIRST}), error_label);
+            gen_code->bpatch(gen_code->makelist({unused_bp, FIRST}), success_label);
           }
           else if (op == "*")
           {
-            buffer->emit(target + " = mul" + op_type_llvm+ " " left+ ", " right););
+            gen_code->emit(target + " = mul" + op_type_llvm+ " " left+ ", " right););
           }
 
           /* Handle overflow / sign */
           if (can_overflow)
           {
-            string next_var = "%var"+to_string(current_var++);
-            buffer->emit(next_var + " = zext i8 " + target + " to i32");
+            string next_var = "%var"+to_string(gen_code->current_var++);
+            gen_code->emit(next_var + " = zext i8 " + target + " to i32");
             target = next_var;
           }
           $$->place = target;
@@ -760,24 +786,24 @@ Exp: LPAREN Exp RPAREN {
 		}
 
 		$$ = new Exp(type, $1->name, semantic_stacks->get_value($1->name));
-        string source = "%var"+to_string(current_var++);
-        string target = "%var"+to_string(current_var++);
+        string source = "%var"+to_string(gen_code->current_var++);
+        string target = "%var"+to_string(gen_code->current_var++);
 
         int size_of_args = semantic_table->get_args_last_func()->size();
 
         table_entry * entry=semantic_table->get_entry($1->name);
 
-		  buffer->emit(declare_var_llvm(source, args_size_str, id_offset));
-          buffer->emit(target + " = load i32, i32* " + source;);
-          $$.place = target;
+		  gen_code->emit(declare_var_llvm(source, args_size_str, id_offset));
+          gen_code->emit(target + " = load i32, i32* " + source;);
+          $$->place = target;
 
-          if (entry->type == TokenType::TYPE_BOOL)
+          if (entry->type == TokenType::TOKEN_BOOL)
           {
-            int target_boolean = "%var"+to_string(current_var++);
-            buffer->emit(target_boolean + " = icmp ne i32 0, " + source);
-            int branch_index = buffer->emit("br i1 " + target_boolean + " , label @ , label @");
-            auto unconditional_list = CodeBuffer::makelist({branch_index, FIRST});
-            auto conditional_list = CodeBuffer::makelist({branch_index, SECOND});
+            int target_boolean = "%var"+to_string(gen_code->current_var++);
+            gen_code->emit(target_boolean + " = icmp ne i32 0, " + source);
+            int branch_index = gen_code->emit("br i1 " + target_boolean + " , label @ , label @");
+            auto unconditional_list = gen_code->makelist({branch_index, FIRST});
+            auto conditional_list = gen_code->makelist({branch_index, SECOND});
 
             $$->true_list = unconditional_list;
             $$->false_list = conditional_list;
@@ -802,23 +828,23 @@ Exp: LPAREN Exp RPAREN {
 	}
 	| TRUE  {
 		$$ = new Exp(TokenType::TOKEN_BOOL, "TRUE",1);
-		int label_index = buffer->emit("br label @");
-        $$->true_list = CodeBuffer::makelist({label_index, FIRST});
+		int label_index = gen_code->emit("br label @");
+        $$->true_list = gen_code->makelist({label_index, FIRST});
 	}
 	| FALSE  {
 		$$ = new Exp(TokenType::TOKEN_BOOL, "FALSE",0);
-		int label_index = buffer->emit("br label @");
-        $$->false_list = CodeBuffer::makelist({label_index, FIRST});
+		int label_index = gen_code->emit("br label @");
+        $$->false_list = gen_code->makelist({label_index, FIRST});
 	}
 	| NOT Exp  {
 		if($2->value == 0) 
 			$$ = new Exp($2->type, "TRUE", 1);
 		else 
 			$$ = new Exp($2->type, "FALSE", 0);
-		string flippedBool = "%var"+to_string(current_var++);
-        string newPlace = "%var"+to_string(current_var++);
-        buffer->emit(flippedBool + " = icmp ne i32 1, " + $2->place);
-        buffer->emit(newPlace + "= zext " + flippedBool +" i1 to i32");
+		string flippedBool = "%var"+to_string(gen_code->current_var++);
+        string newPlace = "%var"+to_string(gen_code->current_var++);
+        gen_code->emit(flippedBool + " = icmp ne i32 1, " + $2->place);
+        gen_code->emit(newPlace + "= zext " + flippedBool +" i1 to i32");
         $$->place=newPlace;
         $$->true_list=$2->false_list;
         $$->false_list=$2->true_list;
@@ -836,9 +862,9 @@ Exp: LPAREN Exp RPAREN {
 		else 
 			$$ = new Exp($1->type, "TRUE", new_val);
 		$$->quad=$3->quad;
-		buffer->bpatch($1->true_list, $$->quad);
+		gen_code->bpatch($1->true_list, $$->quad);
         $$->true_list = $4->true_list;
-        $$->false_list = CodeBuffer::merge($1->false_list, $4->false_list);
+        $$->false_list = gen_code->merge($1->false_list, $4->false_list);
 		}
 		| Exp OR M Exp  {
 			if($1->type != TokenType::TOKEN_BOOL || $4->type != TokenType::TOKEN_BOOL)
@@ -853,9 +879,9 @@ Exp: LPAREN Exp RPAREN {
 			else 
 				$$ = new Exp($1->type, "TRUE", new_val);
 
-			buffer->bpatch($1->false_list, $$->quad);
+			gen_code->bpatch($1->false_list, $$->quad);
             $$->false_list = $4->false_list;
-            $$->true_list = buffer->merge($1->true_list, $4->true_list);
+            $$->true_list = gen_code->merge($1->true_list, $4->true_list);
 		}		
 		| Exp RELOP Exp  {
 			# Mismatch check
@@ -914,12 +940,12 @@ Exp: LPAREN Exp RPAREN {
             {
                 op_llvm = "ne";
             }
-            string target = "%var"+to_string(current_var++);
-            string finalRes = "%var"+to_string(current_var++);
-            buffer->emit(target + " = icmp " + op_llvm + " i32 " + left + ", " + right;);
+            string target = "%var"+to_string(gen_code->current_var++);
+            string finalRes = "%var"+to_string(gen_code->current_var++);
+            gen_code->emit(target + " = icmp " + op_llvm + " i32 " + left + ", " + right;);
 
-            int label_index = buffer->emit("br i1 " + target + " , label @ , label @");
-            buffer->emit(finalRes + " = zext i8 " + target + " to i32");
+            int label_index = gen_code->emit("br i1 " + target + " , label @ , label @");
+            gen_code->emit(finalRes + " = zext i8 " + target + " to i32");
 
             $$->true_list = BufferCode::makelist({label_index, FIRST});
             $$->false_list = BufferCode::makelist({label_index, SECOND});
@@ -941,8 +967,8 @@ Exp: LPAREN Exp RPAREN {
 			    $$ = new Exp($2->type,$4->name,$4->value);
 			    if($4->type==TokenType::TOKEN_B)
 			    {
-			         string next_var = "%var"+to_string(current_var++);();
-                     buffer->emit(next_var + " = zext i8 " + target + " to i32");
+			         string next_var = "%var"+to_string(gen_code->current_var++);();
+                     gen_code->emit(next_var + " = zext i8 " + target + " to i32");
                      $$->place = next_var;
 			    }
 			}
@@ -954,8 +980,8 @@ Exp: LPAREN Exp RPAREN {
 				exit(2);
 			}
 			$$ = new Exp($2->type,$4->name,$4->value);
-			string next_var = "%var"+to_string(current_var++);
-			buffer->emit(next_var + " = trunc i32 " + $4->value + " to i8");
+			string next_var = "%var"+to_string(gen_code->current_var++);
+			gen_code->emit(next_var + " = trunc i32 " + $4->value + " to i8");
 			$$->place = next_var;
 		}
 	}
@@ -973,6 +999,16 @@ int yyerror(const char* const s)
 
 int main(){
 //yydebug=1;
-	return yyparse();
+     int ret= yyparse();
+	gen_code->emitGlobal(printf_llvm);
+    gen_code->emitGlobal(zero_div_llvm);
+    gen_code->emitGlobal(printi_llvm);
+
+    gen_code->emitGlobal(print_llvm);
+    gen_code->emitGlobal(exit_llvm);
+
+    gen_code->printGlobalBuffer();
+    gen_code->printCodeBuffer();
+    return ret;
 }
 

@@ -75,7 +75,7 @@ string define_func_llvm(string name, int size_of_args,string type)
         args = args + "i32 ,";
     }
     args = args.substr(0, args.length() - 1);
-    return "define " + type + " @" + name + "(" + args + ") {entry:\n%fp = alloca [50 x i32]";
+    return "define " + type + " @" + name + "(" + args + ") {";
 }
 
 string declare_var_llvm(string target, string size, int pointer)
@@ -186,7 +186,7 @@ string zext(string varName ,string input,string sourceType,string targetType)
 class LLVM
 {
     public:
-        int current_var;
+
         static LLVM *instance;
         static CodeBuffer *buffer;
         LLVM()=default;

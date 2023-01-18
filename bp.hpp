@@ -16,8 +16,10 @@ class CodeBuffer{
     void operator=(CodeBuffer const&);
 	std::vector<std::string> buffer;
 	std::vector<std::string> globalDefs;
+
 public:
 	static CodeBuffer &instance();
+    int current_var;
 
 	// ******** Methods to handle the code section ******** //
 
