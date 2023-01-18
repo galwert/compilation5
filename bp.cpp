@@ -6,7 +6,7 @@ using namespace std;
 
 bool replace(string& str, const string& from, const string& to, const BranchLabelIndex index);
 
-CodeBuffer::CodeBuffer() : buffer(), globalDefs() {}
+CodeBuffer::CodeBuffer() : buffer(), globalDefs(),current_var(0) {}
 
 CodeBuffer &CodeBuffer::instance() {
 	static CodeBuffer inst;//only instance
