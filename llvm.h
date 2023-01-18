@@ -182,26 +182,4 @@ string zext(string varName ,string input,string sourceType,string targetType)
     return varName + "= zext " + sourceType +" " + input + " to " + targetType;
 }
 
-
-class LLVM
-{
-    public:
-
-        static LLVM *instance;
-        static CodeBuffer *buffer;
-        LLVM()=default;
-        static LLVM *get_instance()
-        {
-            if(instance==NULL)
-            {
-                instance=new LLVM();
-                return instance;
-            }
-            return instance;
-        }
-        void print_all();
-        void make_new_func(string name, int size_of_args,TokenType type);
-        void close_func(TokenType type, Node* node);
-};
-
 #endif //HW5_LLVM_H
