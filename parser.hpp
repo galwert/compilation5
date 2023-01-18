@@ -79,5 +79,11 @@ public:
     void set_vars( vector<Exp>* vars);
     vector<string>* to_string_vector();
 };
-
+struct NMarkerNode{
+    vector<pair<int,BranchLabelIndex>> next_list;
+    NMarkerNode(){
+        int loc =CodeBuffer::instance().emit("br label @");
+        next_list = CodeBuffer::instance().makelist({loc , FIRST});
+    }
+};
 #endif

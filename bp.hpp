@@ -20,7 +20,7 @@ class CodeBuffer{
 public:
 	static CodeBuffer &instance();
     int current_var;
-
+    string freshVar();
 	// ******** Methods to handle the code section ******** //
 
 	//generates a jump location label for the next command, writes it to the buffer and returns it

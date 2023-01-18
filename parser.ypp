@@ -127,17 +127,15 @@ FuncDecl:
 
 			semantic_stacks->new_func($2->name,$1->type,$4->get_args());
 			string type_in_str = $1->type==TokenType::TOKEN_UNDIF ? "void" : "i32";
-            //gen_code->emit(define_func_llvm(name, size_of_args,type_in_str);
             string args = "";
             for (auto i = 0; i < $4->get_args()->size(); i++)
             {
                 args = args + "i32 ,";
             }
             args = args.substr(0, args.length() - 1);
-
-			//make_new_func($2->name, $4->get_args()->size(),$1->type);
 			gen_code->emit("define " + type_in_str + " @" + $2->name + "(" + args + ") {");
-			gen_code->emit("entry: /n%fp = alloca [50 x i32]");
+			gen_code->emit("entry:
+			        %fp = alloca [50 x i32]");
 		}
             LBRACE Statements RBRACE {
             semantic_stacks->exit_scope();gen_code->emit("}");
@@ -199,15 +197,15 @@ Statement:
 
 		    semantic_stacks->new_scope();
 		}
-		Statements M RBRACE {
-
-		             $$ = new Node();//not sure if we need new node
-                     $$->next_list = $2->next_list;
-                     $$->break_list = $2->break_list;
-                     $$->continue_list = $2->continue_list;
-                     gen_code->bpatch($3->next_list,$3->quad);
-		        semantic_stacks->exit_scope();
-		    }
+		Statements M RBRACE
+		{
+             $$ = new Node();
+             $$->next_list = $2->next_list;
+             $$->break_list = $2->break_list;
+             $$->continue_list = $2->continue_list;
+             gen_code->bpatch($3->next_list,$3->quad);
+            semantic_stacks->exit_scope();
+		}
 
 		| Type ID SC {
 			if(semantic_stacks->is_exsists($2->name))
@@ -243,40 +241,42 @@ Statement:
 			$$ = new Node($1->type,$2->name,$4->value);
 			semantic_stacks->new_entry($2->name,$1->type,$4->value);
 
+			string place = $4->place== ""? to_string($4->value) : $4->place;
 
 
             if ($1->type != TokenType::TOKEN_BOOL)
             {
                 string target = "%var"+to_string(gen_code->current_var++);
                 string name = "%var"+ gen_code->current_var++;
-                gen_code->emit("store i32 "+$4->value+" , i32* "+name);
                 gen_code->emit(name + " = getelementptr [50 x i32], [50 x i32]* %fp, i32 0 , i32 " + to_string(semantic_table->get_entry($2->name)->offset));
-                $$->next_list = atom_exp->next_list;
+                gen_code->emit("store i32 "+$4->value+" , i32* "+name);
+                 $$->next_list = $4->next_list;
             }
             else
-            {//we come back when we smart more
-                string true_temp = "%var"+to_string(gen_code->current_var++);
-                string false_temp = "%var"+to_string(gen_code->current_var++);
-                gen_code->emit(declare_var_llvm(true_temp, "0", id_offset));
-                gen_code->emit(store_arg_through_place_llvm("1", true_temp));
-                int unused_index = gen_code->emit("br label @");
-                string true_label = gen_code->genLabel();
-                gen_code->bpatch(gen_code->makelist({unused_index, FIRST}), true_label);
+            {
+               string true_temp = "%var"+ to_string(gen_code->current_var++);
+               string false_temp = "%var"+ to_string(gen_code->current_var++);
 
-                int true_index_patch = gen_code->emit("br label @");
-                gen_code->bpatch(atom_exp.true_list, true_label);
+               int unused_index = gen_code->emit("br label @");
+               string true_label = gen_code->genLabel();
+               gen_code->bpatch(gen_code->makelist({unused_index, FIRST}), true_label);
 
-                string false_label = gen_code->genLabel();
-                gen_code->emit(declare_var_llvm(false_temp, "0", id_offset));
-                gen_code->emit(store_arg_through_place_llvm("0", false_temp));
+               gen_code->emit(declare_var_llvm(true_temp, "0", to_string(semantic_table->get_entry($2->name)->offset)));
+               gen_code->emit("store i32 1 " , i32* " + true_temp);
 
-                int false_index_patch = gen_code->emit("br label @");
-                gen_code->bpatch(atom_exp.false_list, false_label);
+               int true_index_patch = gen_code->emit("br label @");
+               gen_code->bpatch($4->true_list, true_label);
 
-                auto true_list = gen_code->makelist({true_index_patch, FIRST});
-                auto false_list = gen_code->makelist({false_index_patch, FIRST});
-                $$->next_list = gen_code->merge(true_list, false_list);
+               int false_label = gen_code->genLabel();
+               gen_code->emit(declare_var_llvm(false_temp, "0", to_string(semantic_table->get_entry($2->name)->offset)));
+               gen_code->emit("store i32 0 " , i32* " + true_temp");
+
+               int false_index_patch = gen_code->emit("br label @");
+               gen_code->bpatch($4->false_list, false_label);
+
+               $$->next_list = gen_code->merge(gen_code->makelist({true_index_patch, FIRST}), gen_code->makelist({false_index_patch, FIRST}));
              }
+           }
 		}
 		| ID ASSIGN Exp SC {
 			if(!semantic_stacks->is_exsists($1->name) || semantic_stacks->is_func($1->name))
@@ -296,10 +296,41 @@ Statement:
 				output::errorByteTooLarge(yylineno, std::to_string($3->value));
 				exit(2);
 			}
-			
-			$1->value=$3->value;
+
 			semantic_stacks->set_value($1->name,$3->value);
-			// same as above. not smart now
+			string place = $3->place== ""? to_string($3->value) : $3->place;
+			 if ($1->type != TokenType::TOKEN_BOOL)
+            {
+                string target = "%var"+to_string(gen_code->current_var++);
+                string name = "%var"+ gen_code->current_var++;
+                gen_code->emit("store i32 "+place+" , i32* "+name);
+                gen_code->emit(name + " = getelementptr [50 x i32], [50 x i32]* %fp, i32 0 , i32 " + to_string(semantic_table->get_entry($1->name)->offset));
+                $$->next_list = $3->next_list;
+            }
+            else
+            {
+               string true_temp = "%var"+ to_string(gen_code->current_var++);
+               string false_temp = "%var"+ to_string(gen_code->current_var++);
+
+               int unused_index = gen_code->emit("br label @");
+               string true_label = gen_code->genLabel();
+               gen_code->bpatch(gen_code->makelist({unused_index, FIRST}), true_label);
+
+               gen_code->emit(declare_var_llvm(true_temp, to_string(semantic_stacks->get_args_last_func()->size()), to_string(semantic_table->get_entry($1->name)->offset)));
+               gen_code->emit("store i32 1 " , i32* " + true_temp);
+
+               int true_index_patch = gen_code->emit("br label @");
+               gen_code->bpatch($4->true_list, true_label);
+
+               int false_label = gen_code->genLabel();
+               gen_code->emit(declare_var_llvm(false_temp, to_string(semantic_stacks->get_args_last_func()->size()), to_string(semantic_table->get_entry($1->name)->offset)));
+               gen_code->emit("store i32 0 " , i32* " + true_temp");
+
+               int false_index_patch = gen_code->emit("br label @");
+               gen_code->bpatch($3->false_list, false_label);
+
+               $$->next_list = gen_code->merge(gen_code->makelist({true_index_patch, FIRST}), gen_code->makelist({false_index_patch, FIRST}));
+             }
 		}
 		| Call SC {}
 		| RETURN SC {
@@ -308,7 +339,7 @@ Statement:
 				output::errorMismatch(yylineno);
 				exit(2);
 			}
-			gen_code->emit("(ret void)")
+			gen_code->emit("ret void")
 			$$->return_statement=true;
 		}
 
@@ -320,7 +351,8 @@ Statement:
 			}
 			semantic_stacks->update_last_func($2->value);
 			$$->return_statement=true;
-            if($2->type==TokenType::TOKEN_BOOL){
+            if($2->type==TokenType::TOKEN_BOOL)
+            {
                 gen_code->bpatch($2->true_list,$3->quad);
                 gen_code->bpatch($2->false_list,$5->quad);
                 int buffer_index = gen_code->emit("br label @");
@@ -331,11 +363,13 @@ Statement:
                 int falseJump= gen_code->emit(r"ret i32 0");
                 gen_code->bpatch($4->next_list,trueLabel);
                 gen_code->bpatch($6->next_list,falseLabel);
-                  }else{
-                    gen_code->bpatch(gen_code->merge($4->next_list,$6->next_list),$7->quad);
-                      gen_code->emit("ret i32 " + $2->value);
-                      $$->next_list = $2->next_list;
-                  }
+            }
+            else
+            {
+                gen_code->bpatch(gen_code->merge($4->next_list,$6->next_list),$7->quad);
+                gen_code->emit("ret i32 " + $2->value);
+                $$->next_list = $2->next_list;
+            }
 		}
 		| IfExp M Statement {
                	        $$->quad=$2->quad;
@@ -594,23 +628,52 @@ Exp: LPAREN Exp RPAREN {
 		$$->continue_list = $2->continue_list;
 		$$->next_list = $2->next_list;
 	}
-	| Exp IF LPAREN Exp RPAREN ELSE Exp {
+	| Exp IF N LPAREN Exp RPAREN ELSE Exp {
 		if($4->type != TokenType::TOKEN_BOOL)
 		{
 			output::errorMismatch(yylineno);
 			exit(2);
 		}
-
-		if(convert_table[$1->type][$7->type] == TokenType::TOKEN_UNDIF)
+		if(convert_table[$1->type][$8->type] == TokenType::TOKEN_UNDIF)
 		{
 			output::errorMismatch(yylineno);
 			exit(2);
 		}
 		
-		if($4->value == 1)
+		if($5->value == 1)
 			$$ = new Exp($1->type, $1->name, $1->value);
 		else
-			$$ = new Exp($7->type, $7->name, $7->value);
+			$$ = new Exp($8->type, $8->name, $8->value);
+
+
+            Node* jmp_to_end_label = new NMarkerNode();
+            std::string to_start_label = gen_code->genLabel();
+
+            NarkerNode* middle_jmp = new NMarkerNode();
+            std::string middle_label = gen_code->genLabel();
+
+            NarkerNode* jmp_to_bool_exp = new NMarkerNode();
+            std::string end_label = gen_code->genLabelPhi();
+
+            gen_code->bpatch($1->start_list, to_start_label);
+            gen_code->bpatch($8->start_list, $8->start_label);
+            gen_code->bpatch($5->true_list, $1->start_label);
+            gen_code->bpatch($5->false_list, $8->start_label);
+            gen_code->bpatch($5->start_list, $5->start_label);
+
+
+            std::vector<pair<int, BranchLabelIndex>> all_jumps_to_end = gen_code->merge($3->next_list, jmp_to_end_label->next_list);
+            gen_code->bpatch(all_jumps_to_end, end_label);
+            gen_code->bpatch(jmp_to_bool_exp->next_list, $5->start_label);
+            $$->place = "%var"+to_string(gen_code->current_var++);
+            gen_code->bpatch($1->start_list, to_start_label);
+            std::string phi_true_label = $1->trinary ? $1->start_label_tri: $1->start_label;
+            std::string phi_false_label = $8->trinary ? $8->start_label_tri: $8->start_label;
+            gen_code->emit($$->place +" = phi i32 [" + $1->place +", %" + phi_true_label + "] , [" + $8->place +  " , %" + phi_false_label+"]");
+            $$->start_label_tri = end_label;
+            $$->start_label = middle_label;
+            $$->start_list = middle_jmp->next_list;
+            $$->trinary = true;
 	}
 
 
@@ -703,19 +766,16 @@ Exp: LPAREN Exp RPAREN {
 		}
 		$$ = new Exp(new_type, std::to_string(new_val), new_val);
 
-		//denis code started here
 
           string target = "%var"+to_string(gen_code->current_var++);
 
           string right_place = $3->place;
           string left_place = $1->place;
 
-          /* The values to use */
           string right = right_place == "" ? right_value : right_place;
           string left = left_place == "" ? left_value : left_place;
 
           bool can_overflow = false;
-          /* Byte overflow */
           if ($2->name != "/" && $1->type == TokenType::TOKEN_B && $3->type == TokenType::TOKEN_B)
           {
 
@@ -793,7 +853,7 @@ Exp: LPAREN Exp RPAREN {
 
         table_entry * entry=semantic_table->get_entry($1->name);
 
-		  gen_code->emit(declare_var_llvm(source, args_size_str, id_offset));
+          gen_code->emit(declare_var_llvm(source, args_size_str, id_offset));
           gen_code->emit(target + " = load i32, i32* " + source;);
           $$->place = target;
 
@@ -959,8 +1019,7 @@ Exp: LPAREN Exp RPAREN {
 		}
 		if($2->type == TokenType::TOKEN_BOOL) 
 			{
-			    $$ = new Exp($2->type,$4->name,$4->value);
-			    //pass lists
+			    $$ = $4;
 			}
 		if($2->type == TokenType::TOKEN_INT)
 			{

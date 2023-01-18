@@ -12,7 +12,10 @@ CodeBuffer &CodeBuffer::instance() {
 	static CodeBuffer inst;//only instance
 	return inst;
 }
-
+string CodeBuffer::freshVar() {
+    static int vars = 0;
+    return "%t" + to_string(vars++);
+}
 string CodeBuffer::genLabel(){
 	std::stringstream label;
 	label << "label_";
