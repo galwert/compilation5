@@ -32,7 +32,9 @@ public:
     vector<pair<int, BranchLabelIndex>> break_list;
     vector<pair<int, BranchLabelIndex>> continue_list;
     string place;
-
+    string start_label;
+    bool trinary;
+    string start_label_trinary;
     bool return_statement;
     Node(TokenType type,std::string name,int value);
     Node();
@@ -45,6 +47,7 @@ public:
 class Exp : public Node
 {
 public:
+
     Exp(TokenType type,std::string name,int value);
     Exp(const Node &exp);
 };
