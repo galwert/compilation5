@@ -33,6 +33,7 @@ public:
     vector<pair<int, BranchLabelIndex>> continue_list;
     string place;
     string start_label;
+    vector<pair<int, BranchLabelIndex>> start_list;
     bool trinary;
     string start_label_trinary;
     bool return_statement;
