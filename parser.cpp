@@ -139,7 +139,7 @@ bool Stacks::is_func(string name){
 TokenType Stacks::get_func_type(string name){
     for(int j=0;j<tables_stack->at(0)->size();j++)
         if(tables_stack->at(0)->at(j)->name==name)
-            return tables_stack->at(j)->at(j)->type;
+            return tables_stack->at(0)->at(j)->type;
     return TOKEN_UNDIF;
 }
 TokenType Stacks::get_func_type()

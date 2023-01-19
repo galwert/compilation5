@@ -75,15 +75,15 @@ extern int yydebug;
     ASSIGN = 276,                  /* ASSIGN  */
     OR = 277,                      /* OR  */
     AND = 278,                     /* AND  */
-    PLUS = 279,                    /* PLUS  */
-    MULTI = 280,                   /* MULTI  */
-    NOT = 281,                     /* NOT  */
-    RPAREN = 282,                  /* RPAREN  */
-    LPAREN = 283,                  /* LPAREN  */
-    NOELSE = 284,                  /* NOELSE  */
-    ELSE = 285,                    /* ELSE  */
-    IF = 286,                      /* IF  */
-    RELOP = 287,                   /* RELOP  */
+    RELOP = 279,                   /* RELOP  */
+    PLUS = 280,                    /* PLUS  */
+    MULTI = 281,                   /* MULTI  */
+    NOT = 282,                     /* NOT  */
+    RPAREN = 283,                  /* RPAREN  */
+    LPAREN = 284,                  /* LPAREN  */
+    NOELSE = 285,                  /* NOELSE  */
+    ELSE = 286,                    /* ELSE  */
+    IF = 287,                      /* IF  */
     CAST = 288                     /* CAST  */
   };
   typedef enum yytokentype yytoken_kind_t;
