@@ -2,7 +2,7 @@
 
 all: clean
 	flex scanner.lex
-	bison parser.ypp
+	bison -Wcounterexamples -d parser.ypp
 	g++ -std=c++17 -o hw5 *.c *.cpp
 clean:
 	rm -f lex.yy.c

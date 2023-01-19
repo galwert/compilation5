@@ -86,11 +86,4 @@ struct NMarkerNode{
         next_list = CodeBuffer::instance().makelist({loc , FIRST});
     }
 };
-
-void fix_start_label(Node* e_res, Node* e1, Node* e2){
-    CodeBuffer& cb = CodeBuffer::instance();
-    cb.bpatch(e2->start_list, e2->start_label);
-    e_res->start_label = e1->start_label;
-    e_res->start_list = e1->start_list;
-}
 #endif
