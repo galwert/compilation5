@@ -536,7 +536,7 @@ char *yytext;
 #include <stdio.h>
 #include "Node.h"
 #define YYSTYPE Node*
-#include "parser.tab.cpp"
+#include "parser.tab.hpp"
 #include "hw3_output.hpp"
 
 #line 542 "lex.yy.c"
