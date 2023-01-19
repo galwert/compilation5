@@ -31,7 +31,7 @@ public:
 
 	//gets a pair<int,BranchLabelIndex> item of the form {buffer_location, branch_label_index} and creates a list for it
 	static vector<pair<int,BranchLabelIndex>> makelist(pair<int,BranchLabelIndex> item);
-
+    string genLabelPhi();
 	//merges two lists of {buffer_location, branch_label_index} items
 	static vector<pair<int,BranchLabelIndex>> merge(const vector<pair<int,BranchLabelIndex>> &l1,const vector<pair<int,BranchLabelIndex>> &l2);
 

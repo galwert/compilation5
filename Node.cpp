@@ -20,6 +20,7 @@ Node::Node(TokenType type,std::string name,int value) {
     this->start_label="";
     this->trinary= false;
     this->start_label_trinary="";
+    this->start_list=*new vector<pair<int, BranchLabelIndex>>();
 }
 Node::Node() {
     this->type=TOKEN_UNDIF;
@@ -36,6 +37,7 @@ Node::Node() {
     this->start_label="";
     this->trinary= false;
     this->start_label_trinary="";
+    this->start_list=*new vector<pair<int, BranchLabelIndex>>();
 }
 
 // Exp
