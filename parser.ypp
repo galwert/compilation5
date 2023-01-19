@@ -59,7 +59,7 @@ TokenType convert_table[5][5]={
 %right ASSIGN
 %left OR
 %left AND
-
+%nonassoc RELOP
 %left PLUS
 %left MULTI
 %right NOT
@@ -70,7 +70,7 @@ TokenType convert_table[5][5]={
 %nonassoc ELSE
 
 %nonassoc IF
-%nonassoc RELOP
+
 %nonassoc CAST
 %token YYEOF
 %%
@@ -83,8 +83,8 @@ Program:
 				output::errorMainMissing();
 				exit(2);
 			}
-		} 
-		{ semantic_stacks->exit_scope(); }
+		 //semantic_stacks->exit_scope();
+		  }
 		;
 
 Funcs: 
@@ -161,18 +161,21 @@ FormalDecl:
 		;
 Statements:	
 			Statement {
+			$$=new Node();
 			$$->next_list = $1->next_list;
                   $$->break_list = $1->break_list;
                   $$->continue_list = $1->continue_list;
             }
-			| Statements M Statement  {
-			        if ($3->return_statement == false)
-                    {
-                        gen_code.bpatch($1->next_list, $2->quad);
-                    }
-                    $$->next_list = $3->next_list;
-                    $$->break_list = gen_code.merge($1->break_list,$3->break_list);
-                    $$->continue_list = gen_code.merge($1->continue_list,$3->continue_list);
+			| Statements M Statement
+			{
+                if ($3->return_statement == false)
+                {
+                    gen_code.bpatch($1->next_list, $2->quad);
+                }
+                $$=new Node();
+                $$->next_list = $3->next_list;
+                $$->break_list = gen_code.merge($1->break_list,$3->break_list);
+                $$->continue_list = gen_code.merge($1->continue_list,$3->continue_list);
             }
 		;
 
@@ -182,6 +185,7 @@ M:
           int buffer_index = gen_code.emit("br label @");
           string label = gen_code.genLabel();
           gen_code.bpatch(gen_code.makelist({buffer_index, FIRST}), label);
+          $$=new Node();
           $$->quad = label;
     };
 
@@ -191,6 +195,7 @@ N:
           int buffer_index = gen_code.emit("br label @");
           string label = gen_code.genLabel();
           gen_code.bpatch(gen_code.makelist({buffer_index, FIRST}), label);
+          $$=new Node();
           $$->quad = label;
        $$->next_list = gen_code.makelist({gen_code.emit("br label @"), FIRST});
     };
@@ -203,10 +208,10 @@ Statement:
 		Statements M RBRACE
 		{
              $$ = new Node();
-             $$->next_list = $2->next_list;
-             $$->break_list = $2->break_list;
-             $$->continue_list = $2->continue_list;
-             gen_code.bpatch($3->next_list,$3->quad);
+             $$->next_list = $3->next_list;
+             $$->break_list = $3->break_list;
+             $$->continue_list = $3->continue_list;
+             gen_code.bpatch($3->next_list,$4->quad);
             semantic_stacks->exit_scope();
 		}
 
@@ -231,6 +236,8 @@ Statement:
 
 			if(convert_table[$1->type][$4->type] == false || ($1->type == TokenType::TOKEN_B && $4->type == TokenType::TOKEN_INT))
 			{
+			printf("here2");
+			fflush(stdout);
 				output::errorMismatch(yylineno);
 				exit(2);
 			}
@@ -298,7 +305,7 @@ Statement:
 				output::errorByteTooLarge(yylineno, std::to_string($3->value));
 				exit(2);
 			}
-
+            $$=new Node();
 			semantic_stacks->set_value($1->name,$3->value);
 			string place = $3->place== ""? to_string($3->value) : $3->place;
 			 if ($1->type != TokenType::TOKEN_BOOL)
@@ -334,7 +341,7 @@ Statement:
                $$->next_list = gen_code.merge(gen_code.makelist({true_index_patch, FIRST}), gen_code.makelist({false_index_patch, FIRST}));
              }
 		}
-		| Call SC {}
+		| Call SC {$$=$1;}
 		| RETURN SC {
 			if(semantic_stacks->get_func_type() != TokenType::TOKEN_UNDIF)
 			{
@@ -342,6 +349,7 @@ Statement:
 				exit(2);
 			}
 			gen_code.emit("ret void");
+			$$=new Exp(TokenType::TOKEN_UNDIF,"",0);
 			$$->return_statement=true;
 		}
 
@@ -352,6 +360,7 @@ Statement:
 				exit(2);
 			}
 			semantic_stacks->update_last_func($2->value);
+			$$=$2;//not sure if maybe new node
 			$$->return_statement=true;
             if($2->type==TokenType::TOKEN_BOOL)
             {
@@ -373,18 +382,21 @@ Statement:
                 $$->next_list = $2->next_list;
             }
 		}
-		| IfExp M Statement {
-               	        $$->quad=$2->quad;
-               	        semantic_stacks->exit_scope();
-               	        gen_code.bpatch($1->true_list, $$->quad);
+		| IfExp M Statement
+		{
+		    $$=new Node();
+            $$->quad=$2->quad;
+            semantic_stacks->exit_scope();
+            gen_code.bpatch($1->true_list, $$->quad);
 
-                       $$->next_list = gen_code.merge($1->false_list, $3->next_list);
-                       $$->continue_list = $3->continue_list;
-                       $$->break_list = $3->break_list;
-                       gen_code.bpatch($1->start_list, $1->start_label);
+           $$->next_list = gen_code.merge($1->false_list, $3->next_list);
+           $$->continue_list = $3->continue_list;
+           $$->break_list = $3->break_list;
+           gen_code.bpatch($1->start_list, $1->start_label);
                	    } %prec NOELSE
 		| IfExp M Statement ELSE N M { semantic_stacks->new_scope(); } Statement { semantic_stacks->exit_scope(); } %prec ELSE
 		        {
+		            $$=new Node();
 		            gen_code.bpatch($1->true_list,$2->quad);
                     gen_code.bpatch($1->false_list,$6->quad);
 
@@ -396,27 +408,30 @@ Statement:
                     gen_code.bpatch($1->start_list, $1->start_label);
 		        }
 		| WHILE M LPAREN Exp RPAREN {
-			if($3->type != TokenType::TOKEN_BOOL)
+
+			if($4->type != TokenType::TOKEN_BOOL)
 			{
 				output::errorMismatch(yylineno);
 				exit(2);
 			}
-			$$->true_list = $4->true_list;
-            $$->false_list = $4->false_list;
-            $$->quad = $2->quad;
+
 			semantic_stacks->whilecounter++;
 			semantic_stacks->new_scope();
 			} M Statement {
-			      gen_code.bpatch($4->true_list,$6->quad);
+                $$=new Node();
+                $$->true_list = $4->true_list;
+                $$->false_list = $4->false_list;
+                $$->quad = $2->quad;
+			      gen_code.bpatch($4->true_list,$7->quad);
 
 
-			      gen_code.bpatch($7->next_list, $2->quad);
-                  gen_code.bpatch($7->continue_list, $2->quad);
+			      gen_code.bpatch($8->next_list, $2->quad);
+                  gen_code.bpatch($8->continue_list, $2->quad);
 
-                  $$->next_list = gen_code.merge($4->false_list, $7->break_list);
+                  $$->next_list = gen_code.merge($4->false_list, $8->break_list);
 
-                  int label_index = gen_code.emit(br_loop_llvm($7->quad));
-                  gen_code.bpatch(gen_code.makelist({label_index, FIRST}), $7->quad);
+                  int label_index = gen_code.emit(br_loop_llvm($8->quad));
+                  gen_code.bpatch(gen_code.makelist({label_index, FIRST}), $8->quad);
 				semantic_stacks->whilecounter--;
 				semantic_stacks->exit_scope();
 				//not sure if we need to update start label. think not
@@ -427,6 +442,7 @@ Statement:
 				output::errorUnexpectedBreak(yylineno);
 				exit(2);
 			}
+			$$=new Node();
 			int label_index = gen_code.emit("br label @");
             $$->break_list = gen_code.makelist({label_index, FIRST});
 		}
@@ -437,13 +453,15 @@ Statement:
 				exit(2);
 			}
 			int label_index = gen_code.emit("br label @");
-
+            $$=new Node();
             $$->continue_list = gen_code.makelist({label_index, FIRST});
 		}
 		;
 IfExp:  IF LPAREN Exp RPAREN {
 		if($3->type != TokenType::TOKEN_BOOL)
 		{
+		    printf("here");
+		    fflush(stdout);
 			output::errorMismatch(yylineno);
 			exit(2);
 		}
@@ -643,7 +661,7 @@ Exp: LPAREN Exp RPAREN {
 		$$->next_list = $2->next_list;
 	}
 	| Exp IF N LPAREN Exp RPAREN ELSE Exp {
-		if($4->type != TokenType::TOKEN_BOOL)
+		if($5->type != TokenType::TOKEN_BOOL)
 		{
 			output::errorMismatch(yylineno);
 			exit(2);
@@ -696,6 +714,8 @@ Exp: LPAREN Exp RPAREN {
 		int new_val;
 		if($1->type==TokenType::TOKEN_STRING||$1->type==TokenType::TOKEN_BOOL||$3->type==TokenType::TOKEN_STRING||$3->type==TokenType::TOKEN_BOOL)
 		{
+		printf("%u",$3->type);
+		fflush(stdout);
 			output::errorMismatch(yylineno);
 			exit(2);
 		}
@@ -985,6 +1005,8 @@ Exp: LPAREN Exp RPAREN {
 			if($1->type == TokenType::TOKEN_UNDIF || $1->type == TokenType::TOKEN_BOOL || $1->type == TokenType::TOKEN_STRING ||
 				$3->type == TokenType::TOKEN_UNDIF || $3->type == TokenType::TOKEN_STRING || $3->type == TokenType::TOKEN_BOOL)
 			{
+			    printf("here1");
+			    fflush(stdout);
 				output::errorMismatch(yylineno);
 				exit(2);
 			}
@@ -1100,6 +1122,7 @@ int yyerror(const char* const s)
 
 int main(){
 //yydebug=1;
+
      int ret= yyparse();
 	gen_code.emitGlobal(printf_llvm);
     gen_code.emitGlobal(zero_div_llvm);
