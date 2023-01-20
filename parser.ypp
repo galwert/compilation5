@@ -117,7 +117,6 @@ FuncDecl:
                 args = args + "i32 ,";
             }
             args = args.substr(0, args.length() - 1);
-			// need to fix shit here...
 			gen_code.emit("define " + type_in_str + " @" + $2->name + "(" + args + ") {");
 			gen_code.emit("entry:");
 			gen_code.emit("%fp = alloca [50 x i32]");
@@ -193,6 +192,7 @@ Statements:
                 {
                     gen_code.bpatch($1->next_list, $2->quad);
                 }
+				gen_code.bpatch($1->next_list, $2->quad);
                 $$=new Node();
                 $$->next_list = $3->next_list;
                 $$->break_list = gen_code.merge($1->break_list,$3->break_list);
@@ -246,8 +246,8 @@ Statement:
 			$$ = new Node($1->type, $2->name, 0);
 			semantic_stacks->new_entry($2->name,$1->type,0);
 			string name = "%var"+ to_string(gen_code.current_var++);
-            gen_code.emit("store i32 0 , i32* "+name);
             gen_code.emit(name + " = getelementptr [50 x i32], [50 x i32]* %fp, i32 0 , i32 " + to_string(semantic_stacks->get_entry($2->name)->offset));
+			gen_code.emit("store i32 0 , i32* "+name);
 		}
 		| Type ID ASSIGN Exp SC {
 			if(semantic_stacks->is_exsists($2->name))
@@ -308,6 +308,7 @@ Statement:
                $$->next_list = gen_code.merge(gen_code.makelist({true_index_patch, FIRST}), gen_code.makelist({false_index_patch, FIRST}));
 			   $$->next_list = gen_code.merge($$->next_list,$4->next_list);
              }
+			 gen_code.bpatch($4->start_list, $4->start_label);
         }
 		| ID ASSIGN Exp SC {
 			if(!semantic_stacks->is_exsists($1->name) || semantic_stacks->is_func($1->name))
@@ -334,9 +335,9 @@ Statement:
             {
                 string target = "%var"+to_string(gen_code.current_var++);
                 string name = "%var"+ to_string(gen_code.current_var++);
-                gen_code.emit("store i32 "+place+" , i32* "+name);
                 gen_code.emit(name + " = getelementptr [50 x i32], [50 x i32]* %fp, i32 0 , i32 " + to_string(semantic_stacks->get_entry($1->name)->offset));
-                $$->next_list = $3->next_list;
+                gen_code.emit("store i32 "+place+" , i32* "+name);
+				$$->next_list = $3->next_list;
             }
             else
             {
@@ -363,6 +364,7 @@ Statement:
                $$->next_list = gen_code.merge(gen_code.makelist({true_index_patch, FIRST}), gen_code.makelist({false_index_patch, FIRST}));
 				$$->next_list = gen_code.merge($$->next_list,$3->next_list);
 			 }
+			 gen_code.bpatch($3->start_list, $3->start_label);
 		}
 		| Call SC {$$=$1;}
 		| RETURN SC {
@@ -400,10 +402,12 @@ Statement:
             }
             else
             {
+				string value = $2->place == "" ? to_string($2->value) : $2->place;
                 gen_code.bpatch(gen_code.merge($4->next_list,$6->next_list),$7->quad);
-                gen_code.emit("ret i32 " + to_string($2->value));
+                gen_code.emit("ret i32 " + value);
                 $$->next_list = $2->next_list;
             }
+			gen_code.bpatch($2->start_list, $2->start_label);
 		}
 		| IfExp M Statement
 		{
@@ -417,6 +421,7 @@ Statement:
            $$->continue_list = $3->continue_list;
            $$->break_list = $3->break_list;
            gen_code.bpatch($1->start_list, $1->start_label);
+		   
         } %prec NOELSE
 		| IfExp M Statement ELSE N M { semantic_stacks->new_scope(); } Statement { semantic_stacks->exit_scope(); } %prec ELSE
 		        {
@@ -425,11 +430,11 @@ Statement:
                     gen_code.bpatch($1->false_list,$6->quad);
 
 
-                    $$->next_list = gen_code.merge($3->next_list, $7->next_list);
+                    $$->next_list = gen_code.merge($3->next_list, $8->next_list);
                     $$->next_list = gen_code.merge($$->next_list, $5->next_list);
 					$$->next_list = gen_code.merge($$->next_list,$1->next_list); // Not sure if necesery
-                    $$->break_list = gen_code.merge($3->break_list, $7->break_list);
-                    $$->continue_list = gen_code.merge($3->continue_list, $7->continue_list);
+                    $$->break_list = gen_code.merge($3->break_list, $8->break_list);
+                    $$->continue_list = gen_code.merge($3->continue_list, $8->continue_list);
                     gen_code.bpatch($1->start_list, $1->start_label);
 		        }
 		| WHILE M LPAREN Exp RPAREN {
@@ -447,21 +452,22 @@ Statement:
                 $$->true_list = $4->true_list;
                 $$->false_list = $4->false_list;
                 $$->quad = $2->quad;
-			      gen_code.bpatch($4->true_list,$7->quad);
+			    gen_code.bpatch($4->true_list,$7->quad);
 
 
-			      gen_code.bpatch($8->next_list, $2->quad);
-                  gen_code.bpatch($8->continue_list, $2->quad);
+			    gen_code.bpatch($8->next_list, $2->quad);
+                gen_code.bpatch($8->continue_list, $2->quad);
 
-                  $$->next_list = gen_code.merge($4->false_list, $8->break_list);
-				  $$->next_list = gen_code.merge($$->next_list,$4->next_list); // Not sure if necesery
+                $$->next_list = gen_code.merge($4->false_list, $8->break_list);
+				$$->next_list = gen_code.merge($$->next_list,$4->next_list); // Not sure if necesery
 
-                  int label_index = gen_code.emit(br_loop_llvm($8->quad));
-                  gen_code.bpatch(gen_code.makelist({label_index, FIRST}), $8->quad);
+                int label_index = gen_code.emit(br_loop_llvm($2->quad));
+                gen_code.bpatch(gen_code.makelist({label_index, FIRST}), $8->quad);
 				semantic_stacks->whilecounter--;
 				semantic_stacks->exit_scope();
-				//not sure if we need to update start label. think not
+				gen_code.bpatch($4->start_list, $4->start_label);
 			}
+			
 		| BREAK SC {
 			if(semantic_stacks->whilecounter == 0)
 			{
@@ -532,7 +538,8 @@ Call:	ID LPAREN ExpList M RPAREN {
                 string args_llvm = "";
                 for(int i=0; i<$3->get_vars()->size();i++)
                 {
-                    args_llvm = args_llvm + "i32 " + to_string($3->get_vars()->at(i).value) + ",";
+					string value = $3->get_vars()->at(i).place == "" ? to_string($3->get_vars()->at(i).value) : $3->get_vars()->at(i).place;
+                    args_llvm = args_llvm + "i32 " + value + ",";
                 }
                 /* Cut the last "," */
                 args_llvm = args_llvm.substr(0, args_llvm.length() - 1);
@@ -545,7 +552,6 @@ Call:	ID LPAREN ExpList M RPAREN {
                 }
                 else
                 {
-                    gen_code.emit("call i32 @" + $1->name + "(" + args_llvm + ")");
                     string target = "%var"+to_string(gen_code.current_var++);
                     string return_type_llvm = ret_type==TokenType::TOKEN_UNDIF ? "void" : "i32";
                     gen_code.emit(target + " = call " + return_type_llvm + " @" + $1->name + "(" + args_llvm + ")");
@@ -636,6 +642,7 @@ ExpList: Exp {
             $$->true_list=$1->true_list;
             $$->false_list=$1->false_list;
 			$$->next_list = $1->next_list;
+			gen_code.bpatch($1->start_list, $1->start_label);
 		}
 		| Exp COMMA ExpList {
 			Exp* exp = new Exp($1->type, $1->name, $1->value);
@@ -665,6 +672,7 @@ ExpList: Exp {
             $$->true_list = gen_code.merge($1->true_list, $3->true_list);
             $$->false_list = gen_code.merge($1->false_list, $3->false_list);
 			$$->next_list = gen_code.merge($1->next_list, $3->next_list);
+			gen_code.bpatch($1->start_list, $1->start_label);
 		}
 		;
 
@@ -772,10 +780,10 @@ Exp: LPAREN Exp RPAREN {
 		{
 
 			string left_var = "%var"+to_string(gen_code.current_var++);
-			gen_code.emit(left_var + " = trunc i32 " + to_string($1->value) + " to i8");
+			gen_code.emit(left_var + " = trunc i32 " + left + " to i8");
 
 			string right_var = "%var"+to_string(gen_code.current_var++);
-			gen_code.emit(right_var + " = trunc i32 " + to_string($1->value) + " to i8");
+			gen_code.emit(right_var + " = trunc i32 " + right + " to i8");
 
 			/* Bubble the updates */
 			left = left_var;
@@ -842,10 +850,10 @@ Exp: LPAREN Exp RPAREN {
           {
 
             string left_var = "%var"+to_string(gen_code.current_var++);
-            gen_code.emit(left_var + " = trunc i32 " + to_string($1->value) + " to i8");
+            gen_code.emit(left_var + " = trunc i32 " + right + " to i8");
 
             string right_var = "%var"+to_string(gen_code.current_var++);
-            gen_code.emit(right_var + " = trunc i32 " + to_string($1->value) + " to i8");
+            gen_code.emit(right_var + " = trunc i32 " + left + " to i8");
 
             /* Bubble the updates */
             left = left_var;
@@ -918,32 +926,32 @@ Exp: LPAREN Exp RPAREN {
 
         table_entry * entry=semantic_stacks->get_entry($1->name);
 
-          gen_code.emit(declare_var_llvm(source, to_string(size_of_args), entry->offset));
-          gen_code.emit(target + " = load i32, i32* " + source);
-          $$->place = target;
-          if(entry->offset>=0)
-          {
-              int loc = gen_code.emit("br label @");
-              $$->start_label = gen_code.genLabel();
-              $$->start_list = gen_code.makelist({loc, FIRST});
-          }
-          if (entry->type == TokenType::TOKEN_BOOL)
-          {
-              if (entry->offset<0)
-              {
-                  int loc = gen_code.emit("br label @");
-                  $$->start_label = gen_code.genLabel();
-                  $$->start_list = gen_code.makelist({loc, FIRST});
-              }
-            string target_boolean = "%var"+to_string(gen_code.current_var++);
-            gen_code.emit(target_boolean + " = icmp ne i32 0, " + $$->place);
-            int branch_index = gen_code.emit("br i1 " + target_boolean + " , label @ , label @");
-            auto unconditional_list = gen_code.makelist({branch_index, FIRST});
-            auto conditional_list = gen_code.makelist({branch_index, SECOND});
+        gen_code.emit(declare_var_llvm(source, to_string(size_of_args), entry->offset));
+        gen_code.emit(target + " = load i32, i32* " + source);
+        $$->place = target;
+        if(entry->offset>=0)
+		{
+			int loc = gen_code.emit("br label @");
+			$$->start_label = gen_code.genLabel();
+			$$->start_list = gen_code.makelist({loc, FIRST});
+		}
+		if (entry->type == TokenType::TOKEN_BOOL)
+		{
+			if (entry->offset<0)
+			{
+				int loc = gen_code.emit("br label @");
+				$$->start_label = gen_code.genLabel();
+				$$->start_list = gen_code.makelist({loc, FIRST});
+			}
+		string target_boolean = "%var"+to_string(gen_code.current_var++);
+		gen_code.emit(target_boolean + " = icmp ne i32 0, " + $$->place);
+		int branch_index = gen_code.emit("br i1 " + target_boolean + " , label @ , label @");
+		auto unconditional_list = gen_code.makelist({branch_index, FIRST});
+		auto conditional_list = gen_code.makelist({branch_index, SECOND});
 
-            $$->true_list = unconditional_list;
-            $$->false_list = conditional_list;
-          }
+		$$->true_list = unconditional_list;
+		$$->false_list = conditional_list;
+		}
 
 
 	}
