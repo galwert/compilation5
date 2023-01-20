@@ -41,5 +41,19 @@ Node::Node() {
 }
 
 // Exp
-Exp::Exp(TokenType type,std::string name,int value): Node( type, name, value){this->start_label=CodeBuffer::instance().genLabel();}
-Exp::Exp(const Node &exp): Node( exp.type, exp.name, exp.value){this->start_label=exp.start_label;}
+Exp::Exp(TokenType type,std::string name,int value): Node( type, name, value)
+{
+
+}
+Exp::Exp(TokenType type,std::string name,int value, bool is_tri): Node( type, name, value)
+{
+    this->trinary = is_tri;
+    int index = CodeBuffer::instance().emit("br label @");
+    this->start_label = CodeBuffer::instance().genLabel();
+    this->start_list = CodeBuffer::instance().makelist({index, FIRST});
+}
+Exp::Exp(const Node &exp): Node( exp.type, exp.name, exp.value)
+{
+    this->start_label=exp.start_label;
+    this->place = exp.place;    
+}

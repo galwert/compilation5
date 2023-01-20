@@ -50,6 +50,7 @@ class Exp : public Node
 public:
 
     Exp(TokenType type,std::string name,int value);
+    Exp(TokenType type,std::string name,int value, bool is_tri);
     Exp(const Node &exp);
 };
 #endif //HW3_NODE_H
