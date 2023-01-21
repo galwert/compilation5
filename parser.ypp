@@ -331,7 +331,7 @@ Statement:
             $$=new Node();
 			semantic_stacks->set_value($1->name,$3->value);
 			string place = $3->place== ""? to_string($3->value) : $3->place;
-			 if ($1->type != TokenType::TOKEN_BOOL)
+			if ($1->type != TokenType::TOKEN_BOOL)
             {
                 string target = "%var"+to_string(gen_code.current_var++);
                 string name = "%var"+ to_string(gen_code.current_var++);
@@ -341,32 +341,35 @@ Statement:
             }
             else
             {
-               string true_temp = "%var"+ to_string(gen_code.current_var++);
-               string false_temp = "%var"+ to_string(gen_code.current_var++);
+               	string true_temp = "%var"+ to_string(gen_code.current_var++);
+               	string false_temp = "%var"+ to_string(gen_code.current_var++);
 
-               int unused_index = gen_code.emit("br label @");
-               string true_label = gen_code.genLabel();
-               gen_code.bpatch(gen_code.makelist({unused_index, FIRST}), true_label);
+               	int unused_index = gen_code.emit("br label @");
+               	string true_label = gen_code.genLabel();
+               	gen_code.bpatch(gen_code.makelist({unused_index, FIRST}), true_label);
 
-               gen_code.emit(declare_var_llvm(true_temp, to_string(semantic_stacks->get_args_last_func()->size()), semantic_stacks->get_entry($1->name)->offset));
-               gen_code.emit("store i32 1 , i32* " + true_temp);
+               	gen_code.emit(declare_var_llvm(true_temp, to_string(semantic_stacks->get_args_last_func()->size()), semantic_stacks->get_entry($1->name)->offset));
+               	gen_code.emit("store i32 1 , i32* " + true_temp);
 
-               int true_index_patch = gen_code.emit("br label @");
-               gen_code.bpatch($4->true_list, true_label);
+              	int true_index_patch = gen_code.emit("br label @");
+               	gen_code.bpatch($3->true_list, true_label);
 
-               string false_label = gen_code.genLabel();
-               gen_code.emit(declare_var_llvm(false_temp, to_string(semantic_stacks->get_args_last_func()->size()), semantic_stacks->get_entry($1->name)->offset));
-               gen_code.emit("store i32 0 , i32* " + true_temp);
+               	string false_label = gen_code.genLabel();
+               	gen_code.emit(declare_var_llvm(false_temp, to_string(semantic_stacks->get_args_last_func()->size()), semantic_stacks->get_entry($1->name)->offset));
+               	gen_code.emit("store i32 0 , i32* " + true_temp);
 
-               int false_index_patch = gen_code.emit("br label @");
-               gen_code.bpatch($3->false_list, false_label);
+               	int false_index_patch = gen_code.emit("br label @");
+               	gen_code.bpatch($3->false_list, false_label);
 
-               $$->next_list = gen_code.merge(gen_code.makelist({true_index_patch, FIRST}), gen_code.makelist({false_index_patch, FIRST}));
+               	$$->next_list = gen_code.merge(gen_code.makelist({true_index_patch, FIRST}), gen_code.makelist({false_index_patch, FIRST}));
 				$$->next_list = gen_code.merge($$->next_list,$3->next_list);
 			 }
 			 gen_code.bpatch($3->start_list, $3->start_label);
 		}
-		| Call SC {$$=$1;}
+		| Call SC {
+			$$=$1;
+			$$->next_list = gen_code.merge(gen_code.merge($$->true_list,$$->false_list),$$->next_list);
+		}
 		| RETURN SC {
 			if(semantic_stacks->get_func_type() != TokenType::TOKEN_UNDIF)
 			{
@@ -525,7 +528,7 @@ Call:	ID LPAREN ExpList M RPAREN {
 
 			$$ = new Call(semantic_stacks->get_type($1->name), $1->name,semantic_stacks->get_value($1->name));
 			gen_code.bpatch($3->true_list,$4->quad);
-              gen_code.bpatch($3->false_list,$4->quad);
+            gen_code.bpatch($3->false_list,$4->quad);
             if ($1->name == "print")
             {
                 string str = $3->get_vars()->front().place;
@@ -567,7 +570,7 @@ Call:	ID LPAREN ExpList M RPAREN {
                 }
             }
         $$->start_label = $3->start_label;
-         gen_code.bpatch($$->start_list, $$->start_label);
+        gen_code.bpatch($$->start_list, $$->start_label);
 
 		}
 		| ID LPAREN RPAREN {
@@ -694,6 +697,8 @@ Exp: LPAREN Exp RPAREN {
 		$$->break_list = $2->break_list;
 		$$->continue_list = $2->continue_list;
 		$$->next_list = $2->next_list;
+		$$->start_list = $2->start_list;
+		$$->start_label = $2->start_label;
 	}
 	| Exp IF N LPAREN Exp RPAREN ELSE Exp {
 		if($5->type != TokenType::TOKEN_BOOL)
@@ -955,7 +960,7 @@ Exp: LPAREN Exp RPAREN {
 
 
 	}
-	| Call {}
+	| Call {$$ = $1;}
 	| NUM {
 		$$->type = $1->type;
         $$->value = $1->value;
@@ -995,12 +1000,15 @@ Exp: LPAREN Exp RPAREN {
 			$$ = new Exp($2->type, "FALSE", 0);
 		string flippedBool = "%var"+to_string(gen_code.current_var++);
         string newPlace = "%var"+to_string(gen_code.current_var++);
-        gen_code.emit(flippedBool + " = icmp ne i32 1, " + $2->place);
-        gen_code.emit(newPlace + "= zext " + flippedBool +" i1 to i32");
+		string value = $2->place == "" ? to_string($2->value) : $2->place;
+        gen_code.emit(flippedBool + " = icmp ne i32 1, " + value);
+        gen_code.emit(newPlace + "= zext i1 " + flippedBool + " to i32");
         $$->place=newPlace;
         $$->true_list=$2->false_list;
         $$->false_list=$2->true_list;
 		$$->next_list = $2->next_list;
+		$$->start_list = $2->start_list;
+		$$->start_label = $2->start_label;
 	}
 	| Exp AND M Exp  {
 		if($1->type != TokenType::TOKEN_BOOL || $4->type != TokenType::TOKEN_BOOL)
@@ -1105,8 +1113,8 @@ Exp: LPAREN Exp RPAREN {
             string finalRes = "%var"+to_string(gen_code.current_var++);
             gen_code.emit(target + " = icmp " + op_llvm + " i32 " + left + ", " + right);
 
+			gen_code.emit(finalRes + " = zext i1 " + target + " to i32");
             int label_index = gen_code.emit("br i1 " + target + " , label @ , label @");
-            gen_code.emit(finalRes + " = zext i1 " + target + " to i32");
 
             $$->true_list = gen_code.makelist({label_index, FIRST});
             $$->false_list = gen_code.makelist({label_index, SECOND});
