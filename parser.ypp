@@ -1009,8 +1009,8 @@ Exp: LPAREN Exp RPAREN {
         $$->true_list=$2->false_list;
         $$->false_list=$2->true_list;
 		$$->next_list = $2->next_list;
-		$$->start_list = $1->start_list;
-		$$->start_label = $1->start_label;
+		$$->start_list = $2->start_list;
+		$$->start_label = $2->start_label;
 	}
 	| Exp AND M Exp  {
 		if($1->type != TokenType::TOKEN_BOOL || $4->type != TokenType::TOKEN_BOOL)
