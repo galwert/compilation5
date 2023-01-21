@@ -14,4 +14,4 @@ add_executable(hw5
         Node.cpp
         Node.h
         parser.cpp
-        parser.hpp)
+        parser.hpp parser.tab.cpp)
