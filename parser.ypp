@@ -1143,7 +1143,7 @@ Exp: LPAREN Exp RPAREN {
 			    {
 			         string next_var = "%var"+to_string(gen_code.current_var++);
 					 auto target = $4->place == "" ? to_string($4->value) : $4->place;
-                     gen_code.emit(next_var + " = zext i8 " + target + " to i32");
+                     gen_code.emit(next_var + " = zext i8 " + target + " to i32");//not sure if neccesery test yosnkos15
                      $$->place = next_var;
 			    }
 			}

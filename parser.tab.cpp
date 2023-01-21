@@ -2547,8 +2547,9 @@ yyreduce:
 		if(yyvsp[-2]->type == TokenType::TOKEN_INT)
 			{
 			    yyval = new Exp(yyvsp[-2]->type,yyvsp[0]->name,yyvsp[0]->value);
-			    if(yyvsp[0]->type==TokenType::TOKEN_B)
+			    if(yyvsp[0]->type==TokenType::TOKEN_B&&semantic_stacks->get_entry(yyvsp[0]->name)->offset>=0)
 			    {
+			        gen_code.emit(to_string(semantic_stacks->get_entry(yyvsp[0]->name)->offset));
 			         string next_var = "%var"+to_string(gen_code.current_var++);
 					 auto target = yyvsp[0]->place == "" ? to_string(yyvsp[0]->value) : yyvsp[0]->place;
                      gen_code.emit(next_var + " = zext i8 " + target + " to i32");
@@ -2574,11 +2575,11 @@ yyreduce:
 		yyval->start_list = yyvsp[0]->start_list;
         yyval->start_label = yyvsp[0]->start_label;
 	}
-#line 2578 "parser.tab.cpp"
+#line 2579 "parser.tab.cpp"
     break;
 
 
-#line 2582 "parser.tab.cpp"
+#line 2583 "parser.tab.cpp"
 
       default: break;
     }
@@ -2771,7 +2772,7 @@ yyreturnlab:
   return yyresult;
 }
 
-#line 1172 "parser.ypp"
+#line 1173 "parser.ypp"
 
 
 int yyerror(const char* const s)

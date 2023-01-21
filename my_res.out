@@ -61,28 +61,27 @@ label_38:
 %var13 = load i32, i32* %var12
 br label %label_42
 label_42:
-0
 %var14 = zext i8 %var13 to i32
 %var15 = add i32 %var14, 2
 %var17 = getelementptr [50 x i32], [50 x i32]* %fp, i32 0 , i32 1
 store i32 %var15 , i32* %var17
-br label %label_49
-label_49:
+br label %label_48
+label_48:
 
 %var18 = getelementptr [50 x i32], [50 x i32]* %fp, i32 0 , i32 1
 %var19 = load i32, i32* %var18
-br label %label_53
-label_53:
-br label %label_55
-label_55:
+br label %label_52
+label_52:
+br label %label_54
+label_54:
 call void @printi(i32 %var19)
-br label %label_58
-label_58:
+br label %label_57
+label_57:
 
 %var20 = getelementptr [50 x i32], [50 x i32]* %fp, i32 0 , i32 1
 %var21 = load i32, i32* %var20
-br label %label_62
-label_62:
+br label %label_61
+label_61:
 %var22 = trunc i32 %var21 to i8
 %var23 = zext i8 %var22 to i32
 %var25 = trunc i32 %var23 to i8
@@ -95,17 +94,17 @@ label_62:
 %var31 = zext i8 %var28 to i32
 %var33 = getelementptr [50 x i32], [50 x i32]* %fp, i32 0 , i32 2
 store i32 %var31 , i32* %var33
-br label %label_76
-label_76:
+br label %label_75
+label_75:
 
 %var34 = getelementptr [50 x i32], [50 x i32]* %fp, i32 0 , i32 2
 %var35 = load i32, i32* %var34
-br label %label_80
-label_80:
-br label %label_82
-label_82:
+br label %label_79
+label_79:
+br label %label_81
+label_81:
 call void @printi(i32 %var35)
-br label %label_85
-label_85:
+br label %label_84
+label_84:
 ret void
 }
