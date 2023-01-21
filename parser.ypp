@@ -275,7 +275,7 @@ Statement:
 			string place = $4->place== ""? to_string($4->value) : $4->place;
 
 
-            if ($1->type != TokenType::TOKEN_BOOL)
+            if ($4->type != TokenType::TOKEN_BOOL)
             {
                 string target = "%var"+to_string(gen_code.current_var++);
                 string name = "%var"+ to_string(gen_code.current_var++);
@@ -300,7 +300,7 @@ Statement:
 
                string false_label = gen_code.genLabel();
                gen_code.emit(declare_var_llvm(false_temp, "0", semantic_stacks->get_entry($2->name)->offset));
-               gen_code.emit("store i32 0 , i32* " + true_temp);
+               gen_code.emit("store i32 0 , i32* " + false_temp);
 
                int false_index_patch = gen_code.emit("br label @");
                gen_code.bpatch($4->false_list, false_label);
@@ -331,7 +331,7 @@ Statement:
             $$=new Node();
 			semantic_stacks->set_value($1->name,$3->value);
 			string place = $3->place== ""? to_string($3->value) : $3->place;
-			if ($1->type != TokenType::TOKEN_BOOL)
+			if ($3->type != TokenType::TOKEN_BOOL)
             {
                 string target = "%var"+to_string(gen_code.current_var++);
                 string name = "%var"+ to_string(gen_code.current_var++);
@@ -356,7 +356,7 @@ Statement:
 
                	string false_label = gen_code.genLabel();
                	gen_code.emit(declare_var_llvm(false_temp, to_string(semantic_stacks->get_args_last_func()->size()), semantic_stacks->get_entry($1->name)->offset));
-               	gen_code.emit("store i32 0 , i32* " + true_temp);
+               	gen_code.emit("store i32 0 , i32* " + false_temp);
 
                	int false_index_patch = gen_code.emit("br label @");
                	gen_code.bpatch($3->false_list, false_label);
@@ -589,25 +589,24 @@ Call:	ID LPAREN ExpList M RPAREN {
 
             TokenType ret_type = semantic_stacks->get_func_type($1->name);
             string args_llvm = "";
-                if(ret_type==TokenType::TOKEN_UNDIF)
-                {
-                    int index=gen_code.emit("call void @" + $1->name + "()");
-                }
-                  else
-                {
-                    gen_code.emit("call i32 @" + $1->name + "()");
-                    string target = "%var"+to_string(gen_code.current_var++);
-                    string return_type_llvm = ret_type==TokenType::TOKEN_UNDIF ? "void" : "i32";
-                    gen_code.emit(target + " = call " + return_type_llvm + " @" + $1->name + "()");
-                    $$->place=target;
-                    if (ret_type == TokenType::TOKEN_BOOL)
-                {
-                    string target_boolean = "%var"+to_string(gen_code.current_var++);
-                    gen_code.emit(target_boolean + " = icmp ne i32 0, " + $$->place);
-                    int label_index = gen_code.emit("br i1 " + target_boolean + " , label @ , label @");
-                    $$->true_list = gen_code.makelist({label_index, FIRST});
-                    $$->false_list = gen_code.makelist({label_index, SECOND});
-                 }
+            if(ret_type==TokenType::TOKEN_UNDIF)
+            {
+                int index=gen_code.emit("call void @" + $1->name + "()");
+            }
+            else
+            {
+				string target = "%var"+to_string(gen_code.current_var++);
+				string return_type_llvm = ret_type==TokenType::TOKEN_UNDIF ? "void" : "i32";
+				gen_code.emit(target + " = call " + return_type_llvm + " @" + $1->name + "()");
+				$$->place=target;
+				if (ret_type == TokenType::TOKEN_BOOL)
+            	{
+					string target_boolean = "%var"+to_string(gen_code.current_var++);
+					gen_code.emit(target_boolean + " = icmp ne i32 0, " + $$->place);
+					int label_index = gen_code.emit("br i1 " + target_boolean + " , label @ , label @"); // somthing here....
+					$$->true_list = gen_code.makelist({label_index, FIRST});
+					$$->false_list = gen_code.makelist({label_index, SECOND});
+            	}
             }
             int x = gen_code.emit("br label @");
             std::string call_label = gen_code.genLabel();
@@ -948,14 +947,14 @@ Exp: LPAREN Exp RPAREN {
 				$$->start_label = gen_code.genLabel();
 				$$->start_list = gen_code.makelist({loc, FIRST});
 			}
-		string target_boolean = "%var"+to_string(gen_code.current_var++);
-		gen_code.emit(target_boolean + " = icmp ne i32 0, " + $$->place);
-		int branch_index = gen_code.emit("br i1 " + target_boolean + " , label @ , label @");
-		auto unconditional_list = gen_code.makelist({branch_index, FIRST});
-		auto conditional_list = gen_code.makelist({branch_index, SECOND});
+			string target_boolean = "%var"+to_string(gen_code.current_var++);
+			gen_code.emit(target_boolean + " = icmp ne i32 0, " + $$->place);
+			int branch_index = gen_code.emit("br i1 " + target_boolean + " , label @ , label @");
+			auto unconditional_list = gen_code.makelist({branch_index, FIRST});
+			auto conditional_list = gen_code.makelist({branch_index, SECOND});
 
-		$$->true_list = unconditional_list;
-		$$->false_list = conditional_list;
+			$$->true_list = unconditional_list;
+			$$->false_list = conditional_list;
 		}
 
 
@@ -998,6 +997,7 @@ Exp: LPAREN Exp RPAREN {
 			$$ = new Exp($2->type, "TRUE", 1);
 		else 
 			$$ = new Exp($2->type, "FALSE", 0);
+			
 		string flippedBool = "%var"+to_string(gen_code.current_var++);
         string newPlace = "%var"+to_string(gen_code.current_var++);
 		string value = $2->place == "" ? to_string($2->value) : $2->place;
