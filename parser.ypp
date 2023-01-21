@@ -280,7 +280,7 @@ Statement:
                 string target = "%var"+to_string(gen_code.current_var++);
                 string name = "%var"+ to_string(gen_code.current_var++);
                 gen_code.emit(name + " = getelementptr [50 x i32], [50 x i32]* %fp, i32 0 , i32 " + to_string(semantic_stacks->get_entry($2->name)->offset));
-                gen_code.emit("store i32 " + to_string($4->value) + " , i32* "+name);
+                gen_code.emit("store i32 " + place + " , i32* "+name);
                  $$->next_list = $4->next_list;
             }
             else
@@ -830,7 +830,7 @@ Exp: LPAREN Exp RPAREN {
 		
 		if($2->name == "*")
 			new_val = $1->value * $3->value;
-		else if($2->name == "/")
+		else if($2->name == "/" && $3->value != 0)
 		{
 			new_val = $1->value / $3->value;
 		}
@@ -845,9 +845,9 @@ Exp: LPAREN Exp RPAREN {
           string right = right_place == "" ? to_string($3->value) : right_place;
           string left = left_place == "" ? to_string($1->value): left_place;
 
-          bool can_overflow = false;
-          if ($2->name != "/" && $1->type == TokenType::TOKEN_B && $3->type == TokenType::TOKEN_B)
-          {
+        bool can_overflow = false;
+        if ($2->name != "/" && $1->type == TokenType::TOKEN_B && $3->type == TokenType::TOKEN_B)
+      	{
 
             string left_var = "%var"+to_string(gen_code.current_var++);
             gen_code.emit(left_var + " = trunc i32 " + right + " to i8");
@@ -860,13 +860,13 @@ Exp: LPAREN Exp RPAREN {
             right = right_var;
 
             can_overflow = true;
-          }
+        }
 
-          string op_type_llvm = can_overflow ? "i8" : "i32";
+        string op_type_llvm = can_overflow ? "i8" : "i32";
 
-          if ($2->name == "/")
-          {
-            string zero_var_llvm = "%var"+to_string(gen_code.current_var++);
+        if ($2->name == "/")
+        {
+        	string zero_var_llvm = "%var"+to_string(gen_code.current_var++);
             string zero_source = right_place == "" ? to_string($3->value) : right_place;
 
             gen_code.emit(zero_var_llvm + " = icmp eq i32 " + zero_source + ", 0");
@@ -883,24 +883,24 @@ Exp: LPAREN Exp RPAREN {
             gen_code.bpatch(gen_code.makelist({zero_bp, SECOND}), success_label);
             gen_code.bpatch(gen_code.makelist({zero_bp, FIRST}), error_label);
             gen_code.bpatch(gen_code.makelist({unused_bp, FIRST}), success_label);
-          }
-          else if ($2->name == "*")
-          {
+        }
+        else if ($2->name == "*")
+        {
             gen_code.emit(target + " = mul " + op_type_llvm+ " "+ left+ ", " +right);
-          }
+        }
 
-          /* Handle overflow / sign */
-          if (can_overflow)
-          {
+        /* Handle overflow / sign */
+        if (can_overflow)
+        {
             string next_var = "%var"+to_string(gen_code.current_var++);
             gen_code.emit(next_var + " = zext i8 " + target + " to i32");
             target = next_var;
-          }
-          $$->place = target;
-          gen_code.bpatch($3->start_list, $3->start_label);
-          $$->start_label = $1->start_label;
-          $$->start_list = $1->start_list;
-		  $$->next_list = gen_code.merge($1->next_list,$3->next_list);
+        }
+		$$->place = target;
+		gen_code.bpatch($3->start_list, $3->start_label);
+		$$->start_label = $1->start_label;
+		$$->start_list = $1->start_list;
+		$$->next_list = gen_code.merge($1->next_list,$3->next_list);
         }
 	| ID  {
 
