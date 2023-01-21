@@ -1,0 +1,6 @@
+# ninja log v5
+0	1659	1674231462708034480	CMakeFiles/hw5.dir/Node.cpp.o	601c8b7e44492b2d
+0	1750	1674231462799508602	CMakeFiles/hw5.dir/hw3_output.cpp.o	12cf44bf11e92dd8
+0	1951	1674231463000129302	CMakeFiles/hw5.dir/bp.cpp.o	7c389e0b0ea5ed28
+1	2409	1674231463457799875	CMakeFiles/hw5.dir/parser.tab.cpp.o	fa3358deb1504136
+1	2040	1674231463088668509	CMakeFiles/hw5.dir/parser.cpp.o	e1b2e36c55e88b41

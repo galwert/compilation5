@@ -74,6 +74,13 @@ build CMakeFiles/hw5.dir/parser.cpp.o: CXX_COMPILER__hw5_Debug /Users/galwerthei
   OBJECT_DIR = CMakeFiles/hw5.dir
   OBJECT_FILE_DIR = CMakeFiles/hw5.dir
 
+build CMakeFiles/hw5.dir/parser.tab.cpp.o: CXX_COMPILER__hw5_Debug /Users/galwertheizer/Desktop/technion/SemesterE/compilation/untitled$ folder/parser.tab.cpp || cmake_object_order_depends_target_hw5
+  DEP_FILE = CMakeFiles/hw5.dir/parser.tab.cpp.o.d
+  FLAGS = -g -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX13.1.sdk -fcolor-diagnostics -std=gnu++14
+  INCLUDES = -I"/Users/galwertheizer/Desktop/technion/SemesterE/compilation/untitled folder/."
+  OBJECT_DIR = CMakeFiles/hw5.dir
+  OBJECT_FILE_DIR = CMakeFiles/hw5.dir
+
 
 # =============================================================================
 # Link build statements for EXECUTABLE target hw5
@@ -82,7 +89,7 @@ build CMakeFiles/hw5.dir/parser.cpp.o: CXX_COMPILER__hw5_Debug /Users/galwerthei
 #############################################
 # Link the executable hw5
 
-build hw5: CXX_EXECUTABLE_LINKER__hw5_Debug CMakeFiles/hw5.dir/bp.cpp.o CMakeFiles/hw5.dir/hw3_output.cpp.o CMakeFiles/hw5.dir/Node.cpp.o CMakeFiles/hw5.dir/parser.cpp.o
+build hw5: CXX_EXECUTABLE_LINKER__hw5_Debug CMakeFiles/hw5.dir/bp.cpp.o CMakeFiles/hw5.dir/hw3_output.cpp.o CMakeFiles/hw5.dir/Node.cpp.o CMakeFiles/hw5.dir/parser.cpp.o CMakeFiles/hw5.dir/parser.tab.cpp.o
   FLAGS = -g -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX13.1.sdk
   OBJECT_DIR = CMakeFiles/hw5.dir
   POST_BUILD = :
