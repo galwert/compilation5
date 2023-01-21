@@ -1,0 +1,350 @@
+
+declare i32 @printf (i8*, ...)
+
+@.zero_div = constant [24 x i8] c"Error division by zero\0A\00"
+
+@.int_specifier = constant [4 x i8] c"%d\0A\00"
+define void @printi (i32) {
+  call i32 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4 x i8]* @.int_specifier, i32 0, i32 0), i32 %0)
+  ret void
+}
+
+@.str_specifier = constant [4 x i8] c "%s\0A\00"
+define void @print (i8 *) {
+  call i32(i8 *, ...) @printf(i8 * getelementptr([4 x i8], [4 x i8] * @.str_specifier, i32 0, i32 0), i8 * %0)
+  ret void
+}
+
+declare void @exit (i32)
+define void @hello(i32 ,i32 ) {
+entry:
+%fp = alloca [50 x i32]
+%args = alloca [2 x i32]
+
+%var0 = getelementptr [2 x i32], [2 x i32]* %args, i32 0 , i32 0
+store i32 %0 , i32* %var0
+
+%var1 = getelementptr [2 x i32], [2 x i32]* %args, i32 0 , i32 1
+store i32 %1 , i32* %var1
+ret void
+br label %label_10
+label_10:
+ret void
+}
+define i32 @OR(i32 ,i32 ) {
+entry:
+%fp = alloca [50 x i32]
+%args = alloca [2 x i32]
+
+%var2 = getelementptr [2 x i32], [2 x i32]* %args, i32 0 , i32 0
+store i32 %0 , i32* %var2
+
+%var3 = getelementptr [2 x i32], [2 x i32]* %args, i32 0 , i32 1
+store i32 %1 , i32* %var3
+
+%var4 = getelementptr [2 x i32], [2 x i32]* %args, i32 0 , i32 0
+%var5 = load i32, i32* %var4
+br label %label_24
+label_24:
+%var6 = icmp ne i32 0, %var5
+br i1 %var6 , label %label_28 , label %label_50
+br label %label_28
+label_28:
+br label %label_31
+br label %label_31
+label_31:
+br label %label_33
+label_33:
+br label %label_43
+br label %label_36
+label_36:
+br label %label_38
+label_38:
+br label %label_45
+br label %label_41
+label_41:
+br label %label_43
+label_43:
+ret i32 1
+label_45:
+ret i32 0
+br label %label_48
+label_48:
+br label %label_50
+label_50:
+
+%var7 = getelementptr [2 x i32], [2 x i32]* %args, i32 0 , i32 1
+%var8 = load i32, i32* %var7
+br label %label_54
+label_54:
+%var9 = icmp ne i32 0, %var8
+br i1 %var9 , label %label_58 , label %label_63
+br label %label_58
+label_58:
+br label %label_60
+label_60:
+br label %label_70
+br label %label_63
+label_63:
+br label %label_65
+label_65:
+br label %label_72
+br label %label_68
+label_68:
+br label %label_70
+label_70:
+ret i32 1
+label_72:
+ret i32 0
+br label %label_75
+label_75:
+ret i32 0
+}
+define i32 @NOT(i32 ) {
+entry:
+%fp = alloca [50 x i32]
+%args = alloca [1 x i32]
+
+%var10 = getelementptr [1 x i32], [1 x i32]* %args, i32 0 , i32 0
+store i32 %0 , i32* %var10
+
+%var11 = getelementptr [1 x i32], [1 x i32]* %args, i32 0 , i32 0
+%var12 = load i32, i32* %var11
+br label %label_87
+label_87:
+%var13 = icmp ne i32 0, %var12
+br i1 %var13 , label %label_91 , label %label_116
+br label %label_91
+label_91:
+br label %label_99
+br label %label_94
+label_94:
+br label %label_96
+label_96:
+br label %label_106
+br label %label_99
+label_99:
+br label %label_101
+label_101:
+br label %label_108
+br label %label_104
+label_104:
+br label %label_106
+label_106:
+ret i32 1
+label_108:
+ret i32 0
+br label %label_111
+label_111:
+br label %label_113
+label_113:
+br label %label_138
+br label %label_116
+label_116:
+br label %label_119
+br label %label_119
+label_119:
+br label %label_121
+label_121:
+br label %label_131
+br label %label_124
+label_124:
+br label %label_126
+label_126:
+br label %label_133
+br label %label_129
+label_129:
+br label %label_131
+label_131:
+ret i32 1
+label_133:
+ret i32 0
+br label %label_136
+label_136:
+br label %label_138
+label_138:
+ret i32 0
+}
+define i32 @FALSE() {
+entry:
+%fp = alloca [50 x i32]
+%var15 = getelementptr [50 x i32], [50 x i32]* %fp, i32 0 , i32 0
+store i32 1 , i32* %var15
+br label %label_147
+label_147:
+ret i32 0
+}
+define i32 @TRUE() {
+entry:
+%fp = alloca [50 x i32]
+%var16 = call i32 @FALSE()
+%var17 = icmp ne i32 0, %var16
+br i1 %var17 , label %label_159 , label %label_161
+br label %label_157
+label_157:
+br label %label_159
+label_159:
+br label %label_163
+label_161:
+br label %label_163
+label_163:
+%var18 = phi i32 [ 1, %label_159 ] , [ 0, %label_161]
+br label %label_166
+label_166:
+%var19 = call i32 @NOT(i32 %var16)
+%var20 = icmp ne i32 0, %var19
+br i1 %var20 , label %label_171 , label %label_176
+br label %label_171
+label_171:
+br label %label_173
+label_173:
+br label %label_183
+br label %label_176
+label_176:
+br label %label_178
+label_178:
+br label %label_185
+br label %label_181
+label_181:
+br label %label_183
+label_183:
+ret i32 1
+label_185:
+ret i32 0
+br label %label_188
+label_188:
+ret i32 0
+}
+define i32 @foo() {
+entry:
+%fp = alloca [50 x i32]
+%var21 = call i32 @TRUE()
+%var22 = icmp ne i32 0, %var21
+br i1 %var22 , label %label_212 , label %label_214
+br label %label_198
+label_198:
+%var23 = call i32 @FALSE()
+%var24 = icmp ne i32 0, %var23
+br i1 %var24 , label %label_205 , label %label_207
+br label %label_203
+label_203:
+br label %label_205
+label_205:
+br label %label_209
+label_207:
+br label %label_209
+label_209:
+%var25 = phi i32 [ 1, %label_205 ] , [ 0, %label_207]
+br label %label_212
+label_212:
+br label %label_216
+label_214:
+br label %label_216
+label_216:
+%var26 = phi i32 [ 1, %label_212 ] , [ 0, %label_214]
+br label %label_219
+label_219:
+%var27 = call i32 @OR(i32 %var21,i32 %var23)
+%var28 = icmp ne i32 0, %var27
+br i1 %var28 , label %label_224 , label %label_252
+br label %label_224
+label_224:
+br label %label_227
+br label %label_227
+label_227:
+br label %label_229
+label_229:
+call void @printi(i32 800)
+br label %label_232
+label_232:
+br label %label_234
+label_234:
+br label %label_236
+label_236:
+br label %label_244
+br label %label_239
+label_239:
+br label %label_241
+label_241:
+br label %label_244
+br label %label_244
+label_244:
+ret i32 800
+br label %label_247
+label_247:
+br label %label_249
+label_249:
+br label %label_269
+br label %label_252
+label_252:
+br label %label_254
+label_254:
+br label %label_256
+label_256:
+br label %label_264
+br label %label_259
+label_259:
+br label %label_261
+label_261:
+br label %label_264
+br label %label_264
+label_264:
+ret i32 900
+br label %label_267
+label_267:
+br label %label_269
+label_269:
+ret i32 0
+}
+define void @main() {
+entry:
+%fp = alloca [50 x i32]
+%var29 = mul i32 878, 10
+%var30 = add i32 %var29, 7
+br label %label_278
+label_278:
+call void @printi(i32 %var30)
+br label %label_281
+label_281:
+%var31 = call i32 @foo()
+br label %label_284
+label_284:
+br label %label_286
+label_286:
+call void @printi(i32 %var31)
+br label %label_289
+label_289:
+br label %label_305
+br label %label_292
+label_292:
+%var32 = call i32 @TRUE()
+%var33 = icmp ne i32 0, %var32
+br i1 %var33 , label %label_299 , label %label_305
+br label %label_297
+label_297:
+br label %label_299
+label_299:
+%var35 = getelementptr [50 x i32], [50 x i32]* %fp, i32 0 , i32 0
+store i32 1 , i32* %var35
+br label %label_303
+label_303:
+br label %label_305
+label_305:
+br label %label_315
+br label %label_308
+label_308:
+%var36 = call i32 @TRUE()
+%var37 = icmp ne i32 0, %var36
+br i1 %var37 , label %label_315 , label %label_321
+br label %label_313
+label_313:
+br label %label_315
+label_315:
+%var39 = getelementptr [50 x i32], [50 x i32]* %fp, i32 0 , i32 0
+store i32 1 , i32* %var39
+br label %label_319
+label_319:
+br label %label_321
+label_321:
+ret void
+}

@@ -1907,7 +1907,7 @@ yyreduce:
                 }
                   else
                 {
-                    gen_code.emit("call i32 @" + yyvsp[-2]->name + "()");
+                    //gen_code.emit("call i32 @" + $1->name + "()");
                     string target = "%var"+to_string(gen_code.current_var++);
                     string return_type_llvm = ret_type==TokenType::TOKEN_UNDIF ? "void" : "i32";
                     gen_code.emit(target + " = call " + return_type_llvm + " @" + yyvsp[-2]->name + "()");
@@ -2397,8 +2397,8 @@ yyreduce:
         yyval->true_list=yyvsp[0]->false_list;
         yyval->false_list=yyvsp[0]->true_list;
 		yyval->next_list = yyvsp[0]->next_list;
-		yyval->start_list = yyvsp[-1]->start_list;
-		yyval->start_label = yyvsp[-1]->start_label;
+		yyval->start_list = yyvsp[0]->start_list;
+		yyval->start_label = yyvsp[0]->start_label;
 	}
 #line 2404 "parser.tab.cpp"
     break;
@@ -2559,22 +2559,26 @@ yyreduce:
 		{
 			if(yyvsp[0]->type == TokenType::TOKEN_INT && yyvsp[0]->value > 255) 
 			{
-				output::errorByteTooLarge(yylineno, std::to_string(yyvsp[0]->value));
-				exit(2);
+				//output::errorByteTooLarge(yylineno, std::to_string($4->value));
+				//exit(2);
 			}
 			yyval = new Exp(yyvsp[-2]->type,yyvsp[0]->name,yyvsp[0]->value);
 			string next_var = "%var"+to_string(gen_code.current_var++);
 			auto target = yyvsp[0]->place == "" ? to_string(yyvsp[0]->value) : yyvsp[0]->place;
 			gen_code.emit(next_var + " = trunc i32 " + target + " to i8");
-			yyval->place = next_var;
+			string next_next_var = "%var"+to_string(gen_code.current_var++);
+			gen_code.emit(next_next_var + " = zext i8 " + next_var + " to i32");
+			yyval->place = next_next_var;
 		}
 		yyval->next_list = yyvsp[0]->next_list;
+		yyval->start_list = yyvsp[0]->start_list;
+        yyval->start_label = yyvsp[0]->start_label;
 	}
-#line 2574 "parser.tab.cpp"
+#line 2578 "parser.tab.cpp"
     break;
 
 
-#line 2578 "parser.tab.cpp"
+#line 2582 "parser.tab.cpp"
 
       default: break;
     }
@@ -2767,7 +2771,7 @@ yyreturnlab:
   return yyresult;
 }
 
-#line 1168 "parser.ypp"
+#line 1172 "parser.ypp"
 
 
 int yyerror(const char* const s)

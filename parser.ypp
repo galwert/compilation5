@@ -1151,16 +1151,20 @@ Exp: LPAREN Exp RPAREN {
 		{
 			if($4->type == TokenType::TOKEN_INT && $4->value > 255) 
 			{
-				output::errorByteTooLarge(yylineno, std::to_string($4->value));
-				exit(2);
+				//output::errorByteTooLarge(yylineno, std::to_string($4->value));
+				//exit(2);
 			}
 			$$ = new Exp($2->type,$4->name,$4->value);
 			string next_var = "%var"+to_string(gen_code.current_var++);
 			auto target = $4->place == "" ? to_string($4->value) : $4->place;
 			gen_code.emit(next_var + " = trunc i32 " + target + " to i8");
-			$$->place = next_var;
+			string next_next_var = "%var"+to_string(gen_code.current_var++);
+			gen_code.emit(next_next_var + " = zext i8 " + next_var + " to i32");
+			$$->place = next_next_var;
 		}
 		$$->next_list = $4->next_list;
+		$$->start_list = $4->start_list;
+        $$->start_label = $4->start_label;
 	}
 	;
 
