@@ -277,11 +277,18 @@ Statement:
 
             if ($4->type != TokenType::TOKEN_BOOL)
             {
+				if ($4->type == TokenType::TOKEN_B)
+				{
+					string temp = "%var"+ to_string(gen_code.current_var++);
+					gen_code.emit(temp + " = zext i8 " + place + " to i32");
+					$4->place = temp;
+					place = temp;
+				}
                 string target = "%var"+to_string(gen_code.current_var++);
                 string name = "%var"+ to_string(gen_code.current_var++);
                 gen_code.emit(name + " = getelementptr [50 x i32], [50 x i32]* %fp, i32 0 , i32 " + to_string(semantic_stacks->get_entry($2->name)->offset));
                 gen_code.emit("store i32 " + place + " , i32* "+name);
-                 $$->next_list = $4->next_list;
+                $$->next_list = $4->next_list;
             }
             else
             {
@@ -542,7 +549,17 @@ Call:	ID LPAREN ExpList M RPAREN {
                 string args_llvm = "";
                 for(int i=0; i<$3->get_vars()->size();i++)
                 {
-					string value = $3->get_vars()->at(i).place == "" ? to_string($3->get_vars()->at(i).value) : $3->get_vars()->at(i).place;
+					if ($3->get_vars()->at(i).place != "")
+					{
+						string source = "%var"+to_string(gen_code.current_var++);
+        				string target = "%var"+to_string(gen_code.current_var++);
+						int size_of_args = semantic_stacks->get_args_last_func()->size();
+						gen_code.emit(declare_var_llvm(source, to_string(size_of_args), semantic_stacks->get_entry($3->get_vars()->at(i).name)->offset));
+        				gen_code.emit(target + " = load i32, i32* " + source);
+						args_llvm = args_llvm + "i32 " + target + ",";
+						continue;
+					}
+					string value = to_string($3->get_vars()->at(i).value);
                     args_llvm = args_llvm + "i32 " + value + ",";
                 }
                 /* Cut the last "," */
@@ -702,7 +719,7 @@ Exp: LPAREN Exp RPAREN {
 		$$->next_list = $2->next_list;
 		$$->start_list = $2->start_list;
 		$$->start_label = $2->start_label;
-		$$->place=$2->place;
+		$$->place = $2->place;
 	}
 	| Exp IF N LPAREN Exp RPAREN ELSE Exp {
 		if($5->type != TokenType::TOKEN_BOOL)
@@ -789,25 +806,32 @@ Exp: LPAREN Exp RPAREN {
 		{
 
 			string left_var = "%var"+to_string(gen_code.current_var++);
-			if($1->place==""){
-			gen_code.emit(left_var + " = trunc i32 " + left + " to i8");
+			/*
+			if($1->place=="")
+			{
+				gen_code.emit(left_var + " = trunc i32 " + left + " to i8");
             }
             else
             {
                 gen_code.emit(left_var + " = add i8 0," + left );
             }
+			*/
 
 			string right_var = "%var"+to_string(gen_code.current_var++);
-			if($3->place==""){
-			gen_code.emit(right_var + " = trunc i32 " + right + " to i8");
+			/*
+			if($3->place=="")
+			{
+				gen_code.emit(right_var + " = trunc i32 " + right + " to i8");
             }
             else
             {
                 gen_code.emit(right_var + " = add i8 0, " + right);
             }
+			*/
+
 			/* Bubble the updates */
-			left = left_var;
-			right = right_var;
+			//left = left_var;
+			//right = right_var;
 
 			can_overflow = true;
 		}
@@ -815,19 +839,22 @@ Exp: LPAREN Exp RPAREN {
 		string op_type_llvm = can_overflow ? "i8" : "i32";
 	    if ($2->name == "+")
 		{
-		gen_code.emit(target + " = add " + op_type_llvm + " " + left + ", " +right);
+			gen_code.emit(target + " = add " + op_type_llvm + " " + left + ", " +right);
 		}
 		else if ($2->name == "-")
 		{
 			gen_code.emit(target + " = sub " + op_type_llvm + " " + left + ", " +right);
 		}
 
+		/*
 		if (can_overflow)
 		{
 			string next_var = "%var"+to_string(gen_code.current_var++);
 			gen_code.emit(next_var + " = zext i8 " + target + " to i32");
 			target = next_var;
 		}
+		*/
+
 		$$->place = target;
 		gen_code.bpatch($3->start_list, $3->start_label);
         $$->start_label = $1->start_label;
@@ -857,27 +884,27 @@ Exp: LPAREN Exp RPAREN {
 		$$ = new Exp(new_type, std::to_string(new_val), new_val);
 
 
-          string target = "%var"+to_string(gen_code.current_var++);
+        string target = "%var"+to_string(gen_code.current_var++);
 
-          string right_place = $3->place;
-          string left_place = $1->place;
+        string right_place = $3->place;
+        string left_place = $1->place;
 
-          string right = right_place == "" ? to_string($3->value) : right_place;
-          string left = left_place == "" ? to_string($1->value): left_place;
+        string right = right_place == "" ? to_string($3->value) : right_place;
+        string left = left_place == "" ? to_string($1->value): left_place;
 
         bool can_overflow = false;
         if ($2->name != "/" && $1->type == TokenType::TOKEN_B && $3->type == TokenType::TOKEN_B)
       	{
 
             string left_var = "%var"+to_string(gen_code.current_var++);
-            gen_code.emit(left_var + " = trunc i32 " + right + " to i8");
+            //gen_code.emit(left_var + " = trunc i32 " + right + " to i8");
 
             string right_var = "%var"+to_string(gen_code.current_var++);
-            gen_code.emit(right_var + " = trunc i32 " + left + " to i8");
+            //gen_code.emit(right_var + " = trunc i32 " + left + " to i8");
 
             /* Bubble the updates */
-            left = left_var;
-            right = right_var;
+            //left = left_var;
+            //right = right_var;
 
             can_overflow = true;
         }
@@ -910,12 +937,15 @@ Exp: LPAREN Exp RPAREN {
         }
 
         /* Handle overflow / sign */
+		/*
         if (can_overflow)
         {
             string next_var = "%var"+to_string(gen_code.current_var++);
             gen_code.emit(next_var + " = zext i8 " + target + " to i32");
             target = next_var;
         }
+		*/
+		
 		$$->place = target;
 		gen_code.bpatch($3->start_list, $3->start_label);
 		$$->start_label = $1->start_label;
@@ -949,6 +979,7 @@ Exp: LPAREN Exp RPAREN {
         gen_code.emit(declare_var_llvm(source, to_string(size_of_args), entry->offset));
         gen_code.emit(target + " = load i32, i32* " + source);
         $$->place = target;
+
         string new_var = "%var"+to_string(gen_code.current_var++);
         if(entry->type==TokenType::TOKEN_B)
         {
@@ -1131,6 +1162,18 @@ Exp: LPAREN Exp RPAREN {
             {
                 op_llvm = "ne";
             }
+
+			if($1->type == TokenType::TOKEN_B && $1->place != "")
+			{
+				left = "%var"+to_string(gen_code.current_var++);
+				gen_code.emit(left + " = zext i8 " + $1->place + " to i32");
+            }
+			if($3->type == TokenType::TOKEN_B && $3->place != "")
+			{
+				right = "%var"+to_string(gen_code.current_var++);
+				gen_code.emit(right + " = zext i8 " + $3->place + " to i32");
+            }
+
             string target = "%var"+to_string(gen_code.current_var++);
             string finalRes = "%var"+to_string(gen_code.current_var++);
             gen_code.emit(target + " = icmp " + op_llvm + " i32 " + left + ", " + right);
@@ -1178,9 +1221,9 @@ Exp: LPAREN Exp RPAREN {
 			string next_var = "%var"+to_string(gen_code.current_var++);
 			auto target = $4->place == "" ? to_string($4->value) : $4->place;
 			gen_code.emit(next_var + " = trunc i32 " + target + " to i8");
-			string next_next_var = "%var"+to_string(gen_code.current_var++);
-			gen_code.emit(next_next_var + " = zext i8 " + next_var + " to i32");
-			$$->place = next_next_var;
+			//string next_next_var = "%var"+to_string(gen_code.current_var++);
+			//gen_code.emit(next_next_var + " = zext i8 " + next_var + " to i32");
+			$$->place = next_var;
 		}
 		$$->next_list = $4->next_list;
 		$$->start_list = $4->start_list;
