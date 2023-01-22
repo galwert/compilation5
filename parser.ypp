@@ -576,7 +576,13 @@ Call:	ID LPAREN ExpList M RPAREN {
                     string target = "%var"+to_string(gen_code.current_var++);
                     string return_type_llvm = ret_type==TokenType::TOKEN_UNDIF ? "void" : "i32";
                     gen_code.emit(target + " = call " + return_type_llvm + " @" + $1->name + "(" + args_llvm + ")");
-                    $$->place=target;
+                    if (ret_type==TokenType::TOKEN_B)
+					{
+						string new_target = "%var"+to_string(gen_code.current_var++);
+						gen_code.emit(new_target + " = trunc i32 " + target + " to i8");
+						target = new_target;
+					}
+					$$->place=target;
                     if (ret_type == TokenType::TOKEN_BOOL)
                     {
                         string target_boolean = "%var"+to_string(gen_code.current_var++);
@@ -618,6 +624,12 @@ Call:	ID LPAREN ExpList M RPAREN {
                     string target = "%var"+to_string(gen_code.current_var++);
                     string return_type_llvm = ret_type==TokenType::TOKEN_UNDIF ? "void" : "i32";
                     gen_code.emit(target + " = call " + return_type_llvm + " @" + $1->name + "()");
+					if (ret_type==TokenType::TOKEN_B)
+					{
+						string new_target = "%var"+to_string(gen_code.current_var++);
+						gen_code.emit(new_target + " = trunc i32 " + target + " to i8");
+						target = new_target;
+					}
                     $$->place=target;
                     if (ret_type == TokenType::TOKEN_BOOL)
                 {
@@ -836,6 +848,20 @@ Exp: LPAREN Exp RPAREN {
 			can_overflow = true;
 		}
 
+		// Fix mismatch between b and int
+		if($1->type == TokenType::TOKEN_B && $3->type == TokenType::TOKEN_INT)
+		{
+			string new_left = "%var"+to_string(gen_code.current_var++);
+			gen_code.emit(new_left + " = zext i8 " + left + " to i32");
+			left = new_left;
+		}
+		if($1->type == TokenType::TOKEN_INT && $3->type == TokenType::TOKEN_B)
+		{
+			string new_right = "%var"+to_string(gen_code.current_var++);
+			gen_code.emit(new_right + " = zext i8 " + right + " to i32");
+			right = new_right;
+		}
+
 		string op_type_llvm = can_overflow ? "i8" : "i32";
 	    if ($2->name == "+")
 		{
@@ -909,6 +935,20 @@ Exp: LPAREN Exp RPAREN {
             can_overflow = true;
         }
 
+		// Fix mismatch between b and int
+		if($1->type == TokenType::TOKEN_B && $3->type == TokenType::TOKEN_INT)
+		{
+			string new_left = "%var"+to_string(gen_code.current_var++);
+			gen_code.emit(new_left + " = zext i8 " + left + " to i32");
+			left = new_left;
+		}
+		if($1->type == TokenType::TOKEN_INT && $3->type == TokenType::TOKEN_B)
+		{
+			string new_right = "%var"+to_string(gen_code.current_var++);
+			gen_code.emit(new_right + " = zext i8 " + right + " to i32");
+			right = new_right;
+		}
+
         string op_type_llvm = can_overflow ? "i8" : "i32";
 
         if ($2->name == "/")
@@ -945,7 +985,7 @@ Exp: LPAREN Exp RPAREN {
             target = next_var;
         }
 		*/
-		
+
 		$$->place = target;
 		gen_code.bpatch($3->start_list, $3->start_label);
 		$$->start_label = $1->start_label;
