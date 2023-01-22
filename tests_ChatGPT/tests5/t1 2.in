@@ -14,7 +14,7 @@ void main() {
     int x = 5;
     int y = 10;
     int z = 15;
-    int result = x if (iseven(x)) else multiply(y, z);
+    int result = x if (iseven(x)) else x;
     printi(result);
 
     int a = 20;

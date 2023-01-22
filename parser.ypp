@@ -281,7 +281,7 @@ Statement:
 				{
 					string temp = "%var"+ to_string(gen_code.current_var++);
 					gen_code.emit(temp + " = zext i8 " + place + " to i32");
-					$4->place = temp;
+					//$4->place = temp;
 					place = temp;
 				}
                 string target = "%var"+to_string(gen_code.current_var++);
@@ -340,6 +340,13 @@ Statement:
 			string place = $3->place== ""? to_string($3->value) : $3->place;
 			if ($3->type != TokenType::TOKEN_BOOL)
             {
+                if($3->type==TokenType::TOKEN_B)
+                {
+                    string new_var = "%var"+to_string(gen_code.current_var++);
+                    gen_code.emit(new_var + " = zext i8 " + place + " to i32");
+                    place=new_var;
+                    //$3->place=new_var;
+                }
                 string target = "%var"+to_string(gen_code.current_var++);
                 string name = "%var"+ to_string(gen_code.current_var++);
                 gen_code.emit(name + " = getelementptr [50 x i32], [50 x i32]* %fp, i32 0 , i32 " + to_string(semantic_stacks->get_entry($1->name)->offset));
@@ -367,7 +374,6 @@ Statement:
 
                	int false_index_patch = gen_code.emit("br label @");
                	gen_code.bpatch($3->false_list, false_label);
-
                	$$->next_list = gen_code.merge(gen_code.makelist({true_index_patch, FIRST}), gen_code.makelist({false_index_patch, FIRST}));
 				$$->next_list = gen_code.merge($$->next_list,$3->next_list);
 			 }
@@ -414,6 +420,12 @@ Statement:
             {
 				string value = $2->place == "" ? to_string($2->value) : $2->place;
                 gen_code.bpatch(gen_code.merge($4->next_list,$6->next_list),$7->quad);
+                if($2->type==TokenType::TOKEN_B)
+                {
+                    string new_var = "%var"+to_string(gen_code.current_var++);
+                    gen_code.emit(new_var + " = zext i8 " + value + " to i32");
+                    value=new_var;
+                }
                 gen_code.emit("ret i32 " + value);
                 $$->next_list = $2->next_list;
             }
@@ -551,13 +563,31 @@ Call:	ID LPAREN ExpList M RPAREN {
                 {
 					if ($3->get_vars()->at(i).place != "")
 					{
-						string source = "%var"+to_string(gen_code.current_var++);
-        				string target = "%var"+to_string(gen_code.current_var++);
-						int size_of_args = semantic_stacks->get_args_last_func()->size();
-						gen_code.emit(declare_var_llvm(source, to_string(size_of_args), semantic_stacks->get_entry($3->get_vars()->at(i).name)->offset));
-        				gen_code.emit(target + " = load i32, i32* " + source);
-						args_llvm = args_llvm + "i32 " + target + ",";
-						continue;
+					    if(semantic_stacks->get_entry($3->get_vars()->at(i).name)==nullptr)
+					    {
+					        if($3->get_vars()->at(i).type==TokenType::TOKEN_B)
+					        {
+					            string new_var = "%var"+to_string(gen_code.current_var++);
+					            gen_code.emit(new_var + " = zext i8 " + $3->get_vars()->at(i).place + " to i32");
+					            args_llvm = args_llvm + "i32 " + new_var + ",";
+					        }
+					        else
+					        {
+					        args_llvm = args_llvm + "i32 " + $3->get_vars()->at(i).place + ",";
+					        }
+					        continue;
+					    }
+					    else
+					    {
+                            string source = "%var"+to_string(gen_code.current_var++);
+                            string target = "%var"+to_string(gen_code.current_var++);
+                            int size_of_args = semantic_stacks->get_args_last_func()->size();
+
+                            gen_code.emit(declare_var_llvm(source, to_string(size_of_args), semantic_stacks->get_entry($3->get_vars()->at(i).name)->offset));
+                            gen_code.emit(target + " = load i32, i32* " + source);
+                            args_llvm = args_llvm + "i32 " + target + ",";
+                            continue;
+						}
 					}
 					string value = to_string($3->get_vars()->at(i).value);
                     args_llvm = args_llvm + "i32 " + value + ",";
@@ -583,6 +613,7 @@ Call:	ID LPAREN ExpList M RPAREN {
 						target = new_target;
 					}
 					$$->place=target;
+					$$->name="";
                     if (ret_type == TokenType::TOKEN_BOOL)
                     {
                         string target_boolean = "%var"+to_string(gen_code.current_var++);
@@ -631,6 +662,7 @@ Call:	ID LPAREN ExpList M RPAREN {
 						target = new_target;
 					}
                     $$->place=target;
+                    $$->name="";
                     if (ret_type == TokenType::TOKEN_BOOL)
                 {
                     string target_boolean = "%var"+to_string(gen_code.current_var++);
@@ -672,6 +704,7 @@ ExpList: Exp {
                 gen_code.bpatch(gen_code.makelist({true_index, FIRST}), next_label);
                 gen_code.bpatch(gen_code.makelist({false_index, FIRST}), next_label);
                 gen_code.emit(target + " = phi i32 [ 1, %" + true_label + " ] , [ 0, %" + false_label + "]");
+
                 $$->place = target;
             }
             $$->true_list=$1->true_list;
@@ -729,11 +762,11 @@ Exp: LPAREN Exp RPAREN {
 		$$->break_list = $2->break_list;
 		$$->continue_list = $2->continue_list;
 		$$->next_list = $2->next_list;
-		$$->start_list = $2->start_list;
+		$$->start_list =gen_code.merge($2->start_list,$$->start_list);
 		$$->start_label = $2->start_label;
 		$$->place = $2->place;
 	}
-	| Exp IF N LPAREN Exp RPAREN ELSE Exp {
+	| Exp IF N LPAREN Exp RPAREN ELSE Exp {//trinary
 		if($5->type != TokenType::TOKEN_BOOL)
 		{
 			output::errorMismatch(yylineno);
@@ -777,7 +810,10 @@ Exp: LPAREN Exp RPAREN {
             gen_code.emit($$->place +" = phi i32 [" + $1->place +", %" + phi_true_label + "] , [" + $8->place +  " , %" + phi_false_label+"]");
             $$->start_label_trinary = end_label;
             $$->start_label = middle_label;
-            $$->start_list = middle_jmp->next_list;
+            $$->start_list = gen_code.merge($$->start_list,middle_jmp->next_list);
+            $$->start_list = gen_code.merge($$->start_list,$1->start_list);
+            $$->start_list = gen_code.merge($$->start_list,$5->start_list);
+            $$->start_list = gen_code.merge($$->start_list,$8->start_list);
 	}
 
 
@@ -884,7 +920,7 @@ Exp: LPAREN Exp RPAREN {
 		$$->place = target;
 		gen_code.bpatch($3->start_list, $3->start_label);
         $$->start_label = $1->start_label;
-        $$->start_list = $1->start_list;
+        $$->start_list =gen_code.merge($1->start_list,$$->start_list);
 		$$->next_list = gen_code.merge($1->next_list,$3->next_list);
 	}
 	| Exp MULTI Exp  {
@@ -919,7 +955,7 @@ Exp: LPAREN Exp RPAREN {
         string left = left_place == "" ? to_string($1->value): left_place;
 
         bool can_overflow = false;
-        if ($2->name != "/" && $1->type == TokenType::TOKEN_B && $3->type == TokenType::TOKEN_B)
+        if ($1->type == TokenType::TOKEN_B && $3->type == TokenType::TOKEN_B)
       	{
 
             string left_var = "%var"+to_string(gen_code.current_var++);
@@ -954,9 +990,9 @@ Exp: LPAREN Exp RPAREN {
         if ($2->name == "/")
         {
         	string zero_var_llvm = "%var"+to_string(gen_code.current_var++);
-            string zero_source = right_place == "" ? to_string($3->value) : right_place;
+            string zero_source = right == "" ? to_string($3->value) : right;
 
-            gen_code.emit(zero_var_llvm + " = icmp eq i32 " + zero_source + ", 0");
+            gen_code.emit(zero_var_llvm + " = icmp eq "+ op_type_llvm + " " + zero_source + ", 0");
             int zero_bp = gen_code.emit("br i1 " + zero_var_llvm + " , label @ , label @");
 
             string error_label = gen_code.genLabel();
@@ -989,7 +1025,7 @@ Exp: LPAREN Exp RPAREN {
 		$$->place = target;
 		gen_code.bpatch($3->start_list, $3->start_label);
 		$$->start_label = $1->start_label;
-		$$->start_list = $1->start_list;
+		$$->start_list =gen_code.merge($1->start_list,$$->start_list);
 		$$->next_list = gen_code.merge($1->next_list,$3->next_list);
         }
 	| ID  {
@@ -1030,7 +1066,7 @@ Exp: LPAREN Exp RPAREN {
 		{
 			int loc = gen_code.emit("br label @");
 			$$->start_label = gen_code.genLabel();
-			$$->start_list = gen_code.makelist({loc, FIRST});
+			$$->start_list = gen_code.merge(gen_code.makelist({loc, FIRST}),$$->start_list);
 		}
 		if (entry->type == TokenType::TOKEN_BOOL)
 		{
@@ -1038,7 +1074,7 @@ Exp: LPAREN Exp RPAREN {
 			{
 				int loc = gen_code.emit("br label @");
 				$$->start_label = gen_code.genLabel();
-				$$->start_list = gen_code.makelist({loc, FIRST});
+				$$->start_list =gen_code.merge(gen_code.makelist({loc, FIRST}),$$->start_list);
 			}
 		string target_boolean = "%var"+to_string(gen_code.current_var++);
 		string value = $$->place == "" ? to_string($$->value) : $$->place;
@@ -1100,7 +1136,7 @@ Exp: LPAREN Exp RPAREN {
         $$->true_list=$2->false_list;
         $$->false_list=$2->true_list;
 		$$->next_list = $2->next_list;
-		$$->start_list = $2->start_list;
+		$$->start_list = gen_code.merge($2->start_list,$$->start_list);
 		$$->start_label = $2->start_label;
 	}
 	| Exp AND M Exp  {
@@ -1121,7 +1157,7 @@ Exp: LPAREN Exp RPAREN {
         $$->false_list = gen_code.merge($1->false_list, $4->false_list);
         gen_code.bpatch($4->start_list, $4->start_label);
         $$->start_label = $1->start_label;
-        $$->start_list = $1->start_list;
+        $$->start_list =gen_code.merge($1->start_list,$$->start_list);
 		}
 		| Exp OR M Exp  {
 			if($1->type != TokenType::TOKEN_BOOL || $4->type != TokenType::TOKEN_BOOL)
@@ -1141,7 +1177,7 @@ Exp: LPAREN Exp RPAREN {
             $$->true_list = gen_code.merge($1->true_list, $4->true_list);
             gen_code.bpatch($4->start_list, $4->start_label);
             $$->start_label = $1->start_label;
-            $$->start_list = $1->start_list;
+            $$->start_list =gen_code.merge($1->start_list,$$->start_list);
 			$$->next_list = gen_code.merge($1->next_list,$4->next_list);
 		}		
 		| Exp RELOP Exp  {
@@ -1226,7 +1262,7 @@ Exp: LPAREN Exp RPAREN {
             $$->place = finalRes;
             gen_code.bpatch($3->start_list, $3->start_label);
             $$->start_label = $1->start_label;
-            $$->start_list = $1->start_list;
+            $$->start_list =gen_code.merge($1->start_list,$$->start_list);
 			$$->next_list = gen_code.merge($1->next_list,$3->next_list);
 	}
 	| LPAREN Type RPAREN Exp %prec CAST   {
@@ -1264,9 +1300,10 @@ Exp: LPAREN Exp RPAREN {
 			//string next_next_var = "%var"+to_string(gen_code.current_var++);
 			//gen_code.emit(next_next_var + " = zext i8 " + next_var + " to i32");
 			$$->place = next_var;
+			$$->name="";
 		}
 		$$->next_list = $4->next_list;
-		$$->start_list = $4->start_list;
+		$$->start_list =gen_code.merge($4->start_list,$$->start_list);
         $$->start_label = $4->start_label;
 	}
 	;
