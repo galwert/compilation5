@@ -598,9 +598,9 @@ static const yytype_int16 yyrline[] =
        0,    79,    79,    79,    91,    92,    96,    96,   149,   150,
      154,   155,   158,   159,   179,   182,   189,   205,   215,   226,
      226,   240,   252,   313,   369,   373,   384,   415,   429,   444,
-     444,   475,   485,   496,   507,   577,   621,   651,   683,   686,
-     689,   694,   705,   753,   824,   912,   965,   966,   970,   979,
-     988,   993,   998,  1015,  1035,  1056,  1129
+     444,   475,   485,   496,   507,   578,   623,   653,   685,   688,
+     691,   696,   707,   755,   837,   925,   985,   986,   990,   999,
+    1008,  1013,  1018,  1035,  1055,  1076,  1149
 };
 #endif
 
@@ -1869,7 +1869,8 @@ yyreduce:
                     if (ret_type == TokenType::TOKEN_BOOL)
                     {
                         string target_boolean = "%var"+to_string(gen_code.current_var++);
-                        gen_code.emit(target_boolean + " = icmp ne i32 0, " + yyval->place);
+                        string value = yyval->place == "" ? to_string(yyval->value) : yyval->place;
+                        gen_code.emit(target_boolean + " = icmp ne i32 0, " + value);
                         int label_index = gen_code.emit("br i1 " + target_boolean + " , label @ , label @");
                         yyval->true_list = gen_code.makelist({label_index, FIRST});
                         yyval->false_list = gen_code.makelist({label_index, SECOND});
@@ -1880,11 +1881,11 @@ yyreduce:
         gen_code.bpatch(yyval->start_list, yyval->start_label);
 
 		}
-#line 1884 "parser.tab.cpp"
+#line 1885 "parser.tab.cpp"
     break;
 
   case 35: /* Call: ID LPAREN RPAREN  */
-#line 577 "parser.ypp"
+#line 578 "parser.ypp"
                                    {
 			if(!semantic_stacks->is_exsists(yyvsp[-2]->name) || !semantic_stacks->is_func(yyvsp[-2]->name))
 			{
@@ -1915,7 +1916,8 @@ yyreduce:
                     if (ret_type == TokenType::TOKEN_BOOL)
                 {
                     string target_boolean = "%var"+to_string(gen_code.current_var++);
-                    gen_code.emit(target_boolean + " = icmp ne i32 0, " + yyval->place);
+                    string value = yyval->place == "" ? to_string(yyval->value) : yyval->place;
+                    gen_code.emit(target_boolean + " = icmp ne i32 0, " + value);
                     int label_index = gen_code.emit("br i1 " + target_boolean + " , label @ , label @");
                     yyval->true_list = gen_code.makelist({label_index, FIRST});
                     yyval->false_list = gen_code.makelist({label_index, SECOND});
@@ -1927,11 +1929,11 @@ yyreduce:
             yyval->start_label = call_label;
             gen_code.bpatch(yyval->start_list, yyval->start_label);
 		}
-#line 1931 "parser.tab.cpp"
+#line 1933 "parser.tab.cpp"
     break;
 
   case 36: /* ExpList: Exp  */
-#line 621 "parser.ypp"
+#line 623 "parser.ypp"
              {
 			ExpList *explist = new ExpList(); 
 			explist->vars->push_back(Exp(*yyvsp[0]));
@@ -1962,11 +1964,11 @@ yyreduce:
 			yyval->next_list = yyvsp[0]->next_list;
 			gen_code.bpatch(yyvsp[0]->start_list, yyvsp[0]->start_label);
 		}
-#line 1966 "parser.tab.cpp"
+#line 1968 "parser.tab.cpp"
     break;
 
   case 37: /* ExpList: Exp COMMA ExpList  */
-#line 651 "parser.ypp"
+#line 653 "parser.ypp"
                                     {
 			//Exp* exp = new Exp($1->type, $1->name, $1->value);
 			yyvsp[0]->get_vars()->insert(yyvsp[0]->get_vars()->begin(), Exp(*yyvsp[-2]));
@@ -1997,35 +1999,35 @@ yyreduce:
 			yyval->next_list = gen_code.merge(yyvsp[-2]->next_list, yyvsp[0]->next_list);
 			gen_code.bpatch(yyvsp[-2]->start_list, yyvsp[-2]->start_label);
 		}
-#line 2001 "parser.tab.cpp"
+#line 2003 "parser.tab.cpp"
     break;
 
   case 38: /* Type: INT  */
-#line 683 "parser.ypp"
+#line 685 "parser.ypp"
           {
 		yyval = new Node(TokenType::TOKEN_INT, "", 0);
 	}
-#line 2009 "parser.tab.cpp"
+#line 2011 "parser.tab.cpp"
     break;
 
   case 39: /* Type: BYTE  */
-#line 686 "parser.ypp"
+#line 688 "parser.ypp"
                {
 		yyval = new Node(TokenType::TOKEN_B, "", 0);
 	}
-#line 2017 "parser.tab.cpp"
+#line 2019 "parser.tab.cpp"
     break;
 
   case 40: /* Type: BOOL  */
-#line 689 "parser.ypp"
+#line 691 "parser.ypp"
                {
 		yyval = new Node(TokenType::TOKEN_BOOL, "", 0);
 	}
-#line 2025 "parser.tab.cpp"
+#line 2027 "parser.tab.cpp"
     break;
 
   case 41: /* Exp: LPAREN Exp RPAREN  */
-#line 694 "parser.ypp"
+#line 696 "parser.ypp"
                        {
 		yyval = new Exp(yyvsp[-1]->type, yyvsp[-1]->name, yyvsp[-1]->value);
 		yyval->true_list = yyvsp[-1]->true_list;
@@ -2037,11 +2039,11 @@ yyreduce:
 		yyval->start_label = yyvsp[-1]->start_label;
 		yyval->place=yyvsp[-1]->place;
 	}
-#line 2041 "parser.tab.cpp"
+#line 2043 "parser.tab.cpp"
     break;
 
   case 42: /* Exp: Exp IF N LPAREN Exp RPAREN ELSE Exp  */
-#line 705 "parser.ypp"
+#line 707 "parser.ypp"
                                               {
 		if(yyvsp[-3]->type != TokenType::TOKEN_BOOL)
 		{
@@ -2088,11 +2090,11 @@ yyreduce:
             yyval->start_label = middle_label;
             yyval->start_list = middle_jmp->next_list;
 	}
-#line 2092 "parser.tab.cpp"
+#line 2094 "parser.tab.cpp"
     break;
 
   case 43: /* Exp: Exp PLUS Exp  */
-#line 753 "parser.ypp"
+#line 755 "parser.ypp"
                        {
 		TokenType new_type;
 		int new_val;
@@ -2130,11 +2132,22 @@ yyreduce:
 		{
 
 			string left_var = "%var"+to_string(gen_code.current_var++);
+			if(yyvsp[-2]->place==""){
 			gen_code.emit(left_var + " = trunc i32 " + left + " to i8");
+            }
+            else
+            {
+                gen_code.emit(left_var + " = add i8 0," + left );
+            }
 
 			string right_var = "%var"+to_string(gen_code.current_var++);
+			if(yyvsp[0]->place==""){
 			gen_code.emit(right_var + " = trunc i32 " + right + " to i8");
-
+            }
+            else
+            {
+                gen_code.emit(right_var + " = add i8 0, " + right);
+            }
 			/* Bubble the updates */
 			left = left_var;
 			right = right_var;
@@ -2164,11 +2177,11 @@ yyreduce:
         yyval->start_list = yyvsp[-2]->start_list;
 		yyval->next_list = gen_code.merge(yyvsp[-2]->next_list,yyvsp[0]->next_list);
 	}
-#line 2168 "parser.tab.cpp"
+#line 2181 "parser.tab.cpp"
     break;
 
   case 44: /* Exp: Exp MULTI Exp  */
-#line 824 "parser.ypp"
+#line 837 "parser.ypp"
                          {
 		TokenType new_type;
 		int new_val;
@@ -2257,11 +2270,11 @@ yyreduce:
 		yyval->start_list = yyvsp[-2]->start_list;
 		yyval->next_list = gen_code.merge(yyvsp[-2]->next_list,yyvsp[0]->next_list);
         }
-#line 2261 "parser.tab.cpp"
+#line 2274 "parser.tab.cpp"
     break;
 
   case 45: /* Exp: ID  */
-#line 912 "parser.ypp"
+#line 925 "parser.ypp"
               {
 
 		if(semantic_stacks->is_func(yyvsp[0]->name))
@@ -2289,6 +2302,12 @@ yyreduce:
         gen_code.emit(declare_var_llvm(source, to_string(size_of_args), entry->offset));
         gen_code.emit(target + " = load i32, i32* " + source);
         yyval->place = target;
+        string new_var = "%var"+to_string(gen_code.current_var++);
+        if(entry->type==TokenType::TOKEN_B)
+        {
+            gen_code.emit(new_var + " = trunc i32 " + target + " to i8");
+            yyval->place = new_var;
+        }
         if(entry->offset>=0)
 		{
 			int loc = gen_code.emit("br label @");
@@ -2304,7 +2323,8 @@ yyreduce:
 				yyval->start_list = gen_code.makelist({loc, FIRST});
 			}
 		string target_boolean = "%var"+to_string(gen_code.current_var++);
-		gen_code.emit(target_boolean + " = icmp ne i32 0, " + yyval->place);
+		string value = yyval->place == "" ? to_string(yyval->value) : yyval->place;
+		gen_code.emit(target_boolean + " = icmp ne i32 0, " + value);
 		int branch_index = gen_code.emit("br i1 " + target_boolean + " , label @ , label @");
 		auto unconditional_list = gen_code.makelist({branch_index, FIRST});
 		auto conditional_list = gen_code.makelist({branch_index, SECOND});
@@ -2315,26 +2335,26 @@ yyreduce:
 
 
 	}
-#line 2319 "parser.tab.cpp"
+#line 2339 "parser.tab.cpp"
     break;
 
   case 46: /* Exp: Call  */
-#line 965 "parser.ypp"
+#line 985 "parser.ypp"
                {yyval = yyvsp[0];}
-#line 2325 "parser.tab.cpp"
+#line 2345 "parser.tab.cpp"
     break;
 
   case 47: /* Exp: NUM  */
-#line 966 "parser.ypp"
+#line 986 "parser.ypp"
               {
 		yyval->type = yyvsp[0]->type;
         yyval->value = yyvsp[0]->value;
 	}
-#line 2334 "parser.tab.cpp"
+#line 2354 "parser.tab.cpp"
     break;
 
   case 48: /* Exp: NUM B  */
-#line 970 "parser.ypp"
+#line 990 "parser.ypp"
                 {
 		yyval->type = TokenType::TOKEN_B;
       	yyval->value = yyvsp[-1]->value;
@@ -2344,11 +2364,11 @@ yyreduce:
 			exit(2);
 		}
 	}
-#line 2348 "parser.tab.cpp"
+#line 2368 "parser.tab.cpp"
     break;
 
   case 49: /* Exp: STRING  */
-#line 979 "parser.ypp"
+#line 999 "parser.ypp"
                  {
 		yyval = new Exp(yyvsp[0]->type, yyvsp[0]->name, yyvsp[0]->value);
 
@@ -2358,31 +2378,31 @@ yyreduce:
 		string str_len = to_string(str_value.length() + 1);
 		gen_code.emitGlobal(yyval->place + " = constant [" + str_len + " x i8] c\"" + str_value + "\\00\"");
 	}
-#line 2362 "parser.tab.cpp"
+#line 2382 "parser.tab.cpp"
     break;
 
   case 50: /* Exp: TRUE  */
-#line 988 "parser.ypp"
+#line 1008 "parser.ypp"
                 {
 		yyval = new Exp(TokenType::TOKEN_BOOL, "TRUE",1);
 		int label_index = gen_code.emit("br label @");
         yyval->true_list = gen_code.makelist({label_index, FIRST});
 	}
-#line 2372 "parser.tab.cpp"
+#line 2392 "parser.tab.cpp"
     break;
 
   case 51: /* Exp: FALSE  */
-#line 993 "parser.ypp"
+#line 1013 "parser.ypp"
                  {
 		yyval = new Exp(TokenType::TOKEN_BOOL, "FALSE",0);
 		int label_index = gen_code.emit("br label @");
         yyval->false_list = gen_code.makelist({label_index, FIRST});
 	}
-#line 2382 "parser.tab.cpp"
+#line 2402 "parser.tab.cpp"
     break;
 
   case 52: /* Exp: NOT Exp  */
-#line 998 "parser.ypp"
+#line 1018 "parser.ypp"
                    {
 		if(yyvsp[0]->value == 0) 
 			yyval = new Exp(yyvsp[0]->type, "TRUE", 1);
@@ -2400,11 +2420,11 @@ yyreduce:
 		yyval->start_list = yyvsp[0]->start_list;
 		yyval->start_label = yyvsp[0]->start_label;
 	}
-#line 2404 "parser.tab.cpp"
+#line 2424 "parser.tab.cpp"
     break;
 
   case 53: /* Exp: Exp AND M Exp  */
-#line 1015 "parser.ypp"
+#line 1035 "parser.ypp"
                          {
 		if(yyvsp[-3]->type != TokenType::TOKEN_BOOL || yyvsp[0]->type != TokenType::TOKEN_BOOL)
 		{
@@ -2425,11 +2445,11 @@ yyreduce:
         yyval->start_label = yyvsp[-3]->start_label;
         yyval->start_list = yyvsp[-3]->start_list;
 		}
-#line 2429 "parser.tab.cpp"
+#line 2449 "parser.tab.cpp"
     break;
 
   case 54: /* Exp: Exp OR M Exp  */
-#line 1035 "parser.ypp"
+#line 1055 "parser.ypp"
                                 {
 			if(yyvsp[-3]->type != TokenType::TOKEN_BOOL || yyvsp[0]->type != TokenType::TOKEN_BOOL)
 			{
@@ -2451,11 +2471,11 @@ yyreduce:
             yyval->start_list = yyvsp[-3]->start_list;
 			yyval->next_list = gen_code.merge(yyvsp[-3]->next_list,yyvsp[0]->next_list);
 		}
-#line 2455 "parser.tab.cpp"
+#line 2475 "parser.tab.cpp"
     break;
 
   case 55: /* Exp: Exp RELOP Exp  */
-#line 1056 "parser.ypp"
+#line 1076 "parser.ypp"
                                  {
 			//Mismatch check
 			if(yyvsp[-2]->type == TokenType::TOKEN_UNDIF || yyvsp[-2]->type == TokenType::TOKEN_BOOL || yyvsp[-2]->type == TokenType::TOKEN_STRING ||
@@ -2529,11 +2549,11 @@ yyreduce:
             yyval->start_list = yyvsp[-2]->start_list;
 			yyval->next_list = gen_code.merge(yyvsp[-2]->next_list,yyvsp[0]->next_list);
 	}
-#line 2533 "parser.tab.cpp"
+#line 2553 "parser.tab.cpp"
     break;
 
   case 56: /* Exp: LPAREN Type RPAREN Exp  */
-#line 1129 "parser.ypp"
+#line 1149 "parser.ypp"
                                               {
 		if(convert_table[yyvsp[-2]->type][yyvsp[0]->type] == TokenType::TOKEN_UNDIF)
 		{
@@ -2549,9 +2569,10 @@ yyreduce:
 			    yyval = new Exp(yyvsp[-2]->type,yyvsp[0]->name,yyvsp[0]->value);
 			    if(yyvsp[0]->type==TokenType::TOKEN_B)
 			    {
+			    gen_code.emit("here");
 			         string next_var = "%var"+to_string(gen_code.current_var++);
-					 auto target = yyvsp[0]->place == "" ? to_string(yyvsp[0]->value) : yyvsp[0]->place;
-                     gen_code.emit(next_var + " = zext i8 " + target + " to i32");
+					 string target = yyvsp[0]->place == "" ? to_string(yyvsp[0]->value) : yyvsp[0]->place;
+                     gen_code.emit(next_var + " = zext i8 " + target + " to i32");//not sure if neccesery test yosnkos15
                      yyval->place = next_var;
 			    }
 			}
@@ -2574,11 +2595,11 @@ yyreduce:
 		yyval->start_list = yyvsp[0]->start_list;
         yyval->start_label = yyvsp[0]->start_label;
 	}
-#line 2578 "parser.tab.cpp"
+#line 2599 "parser.tab.cpp"
     break;
 
 
-#line 2582 "parser.tab.cpp"
+#line 2603 "parser.tab.cpp"
 
       default: break;
     }
@@ -2771,7 +2792,7 @@ yyreturnlab:
   return yyresult;
 }
 
-#line 1172 "parser.ypp"
+#line 1193 "parser.ypp"
 
 
 int yyerror(const char* const s)
