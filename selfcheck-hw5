@@ -9,11 +9,6 @@ numtests=2
 command="./hw3 < t\$i.in >& t\$i.res"
 hostname="cscomp"
 tmpdir="selfcheck_tmp"
-if [ $( hostname ) != "$hostname" ]
-	then 
-	echo "This script is only intended to run on "$hostname" or "$hostname2"!" 
-	exit 
-fi 
 
 if [ -z "$1" ]
 	then 
@@ -68,13 +63,6 @@ if [ ! -f hw3_output.hpp ]
 	then
 	echo "File output.hpp not found!"
 	exit
-fi
-
-wget --no-check-certificate "$makefileurl" &> /dev/null
-if [ ! -f makefile ]
-	then
-		echo "Unable to download makefile!"
-		exit
 fi
 
 make
